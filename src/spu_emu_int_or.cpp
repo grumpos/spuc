@@ -43,37 +43,37 @@ inline GPR_t si_nor( GPR_t RA, GPR_t RB )
 
 
 
-void spu_or( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RR.RT] = si_or( SPU->GPR[op.RR.RA], SPU->GPR[op.RR.RB] );
-}
-
-void spu_orc( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RR.RT] = si_orc( SPU->GPR[op.RR.RA], SPU->GPR[op.RR.RB] );
-}
-
-void spu_orbi( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RI10.RT] = si_orbi( SPU->GPR[op.RI10.RA], op.RI10.I10 );
-}
-
-void spu_orhi( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RI10.RT] = si_orhi( SPU->GPR[op.RI10.RA], SignExtend( op.RI10.I10, 10 ) );
-}
-
-void spu_ori( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RI10.RT] = si_ori( SPU->GPR[op.RI10.RA], SignExtend( op.RI10.I10, 10 ) );
-}
-
-void spu_orx( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RR.RT] = si_orx( SPU->GPR[op.RR.RA] );
-}
-
-void spu_nor( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	SPU->GPR[op.RR.RT] = si_nor( SPU->GPR[op.RR.RB], SPU->GPR[op.RR.RA] );
-}
+//void spu_or( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RR.RT] = si_or( SPU->GPR[op.RR.RA], SPU->GPR[op.RR.RB] );
+//}
+//
+//void spu_orc( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RR.RT] = si_orc( SPU->GPR[op.RR.RA], SPU->GPR[op.RR.RB] );
+//}
+//
+//void spu_orbi( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RI10.RT] = si_orbi( SPU->GPR[op.RI10.RA], op.RI10.I10 );
+//}
+//
+//void spu_orhi( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RI10.RT] = si_orhi( SPU->GPR[op.RI10.RA], SignExtend( op.RI10.I10, 10 ) );
+//}
+//
+//void spu_ori( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RI10.RT] = si_ori( SPU->GPR[op.RI10.RA], SignExtend( op.RI10.I10, 10 ) );
+//}
+//
+//void spu_orx( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RR.RT] = si_orx( SPU->GPR[op.RR.RA] );
+//}
+//
+//void spu_nor( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	SPU->GPR[op.RR.RT] = si_nor( SPU->GPR[op.RR.RB], SPU->GPR[op.RR.RA] );
+//}

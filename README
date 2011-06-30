@@ -1,10 +1,3 @@
-<<<<<<< HEAD
 For now it's an x86 impementation of the SPU intrinsics, mainly as a practice with SSE.
 
 It was a basic SPU interpreter before, but that got dumped. Still lots of old junk left to be cleaned up.
-=======
-foo
-bar
-sdhskdjghkjsg
-acssadd
->>>>>>> 8196654f0ba1a51c913b417a3df9cbc16d9ab458

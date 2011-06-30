@@ -10,30 +10,6 @@
 
 /* SPU impl */
 
-//inline GPR_t si_selb( GPR_t RA, GPR_t RB, GPR_t RC )
-//{
-//	const __m128 bitsRA = _mm_andnot_ps( RC, RA );
-//	const __m128 bitsRB = _mm_and_ps( RC, RB );
-//	return _mm_or_ps( bitsRA, bitsRB );
-//}
-//
-//inline GPR_t si_cntb( GPR_t RA )
-//{
-//	return _mm_castsi128_ps( _mm_cntb_epui8( _mm_castps_si128( RA ) ) );
-//}
-//
-//inline GPR_t si_clz( GPR_t RA )
-//{
-//	const __m128i t0 = _mm_or_si128( _mm_castps_si128( RA ), _mm_srli_epi32( _mm_castps_si128( RA ), 1 ) );
-//	const __m128i t1 = _mm_or_si128( t0, _mm_srli_epi32( t0, 2 ) );
-//	const __m128i t2 = _mm_or_si128( t1, _mm_srli_epi32( t1, 4 ) );
-//	const __m128i t3 = _mm_or_si128( t2, _mm_srli_epi32( t2, 8 ) );
-//	const __m128i t4 = _mm_or_si128( t3, _mm_srli_epi32( t3, 16 ) );
-//	const __m128i ones = _mm_cntb_epi32( t4 );
-//	return _mm_castsi128_ps( _mm_sub_epi32( _mm_set1_epi32(32), ones ) );
-//}
-
-
 
 static const __m128i mask_all_set8 = _mm_setr_epi8( 0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80i8,
 	0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80i8 );
