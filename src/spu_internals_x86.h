@@ -5,6 +5,7 @@
 #include "spu_emu.h"
 #include <cstdint>
 #include <intrin.h>
+#include "sse_extensions.h"
 
 
 // Helpers
@@ -66,6 +67,8 @@ inline GPR_t si_fsmbi( const int16_t I16 ){
  * Add Instructions 
  */
 
+
+
 inline GPR_t si_ah( GPR_t RA, GPR_t RB ){
 	return _mm_castsi128_ps( _mm_add_epi16( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
 }
@@ -75,17 +78,22 @@ inline GPR_t si_ahi( GPR_t RA, int16_t I10 ){
 }
 
 inline GPR_t si_a( GPR_t RA, GPR_t RB ){
-	return _mm_castsi128_ps( _mm_add_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+	return (v_u32)RA + (v_u32)RB;
+	//return _mm_castsi128_ps( _mm_add_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
 }
 
 inline GPR_t si_ai( GPR_t RA, int16_t I10 ){
-	return _mm_castsi128_ps( _mm_add_epi32( _mm_castps_si128( RA ), _mm_set1_epi32( I10 ) ) );
+	return (v_u32)RA + v_u32(I10);
+	//return _mm_castsi128_ps( _mm_add_epi32( _mm_castps_si128( RA ), _mm_set1_epi32( I10 ) ) );
 }
 
 inline GPR_t si_addx( GPR_t RA, GPR_t RB, GPR_t RT ){
-	const __m128i sum	= _mm_add_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) );
-	const __m128i carry = _mm_and_si128( _mm_castps_si128( RT ), _mm_set1_epi32( 1 ) );
-	return _mm_castsi128_ps( _mm_add_epi32( sum, carry ) );
+	auto sum	= (v_u32)RA + (v_u32)RB;
+	auto carry	= (v_u32)RT + v_u32(1);
+	return sum & carry;
+	//const __m128i sum		= _mm_add_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) );
+	//const __m128i carry	= _mm_and_si128( _mm_castps_si128( RT ), _mm_set1_epi32( 1 ) );
+	//return _mm_castsi128_ps( _mm_add_epi32( sum, carry ) );
 }
 
 inline GPR_t si_cg( GPR_t RA, GPR_t RB ){
@@ -130,23 +138,7 @@ inline GPR_t si_sfi( GPR_t RA, int16_t IMM ){
 	return _mm_castsi128_ps( _mm_sub_epi16( _mm_set1_epi32( (int32_t)IMM ), _mm_castps_si128( RA ) ) );
 }
 
-//#define _MM_CONST_1 (_mm_srli_epi32(_mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()), 31))
-#define _MM_CONST_1(r) (_mm_srli_epi32(_mm_cmpeq_epi32(*(__m128i*)&(r), *(__m128i*)&(r)), 31))
 
-
-// hack around the fact that there is no unsigned cmp in SSE...
-// (RB |<| RA) == (RB/2 < RA/2) | ((RB/2 == RA/2) & (RB_LSB < RA_LSB))
-inline __m128i _mm_cmplt_epu32( __m128i _A, __m128i _B )
-{
-	const __m128i _A_shift		= _mm_srli_epi32( _A, 1 );
-	const __m128i _B_shift		= _mm_srli_epi32( _B, 1 );
-	const __m128i _A_LSB		= _mm_srli_epi32( _mm_slli_epi32( _A, 31 ), 31 );
-	const __m128i _B_LSB		= _mm_srli_epi32( _mm_slli_epi32( _B, 31 ), 31 );
-	const __m128i less_shifted  = _mm_cmplt_epi32( _A_shift, _B_shift );
-	const __m128i equal_shifted = _mm_cmpeq_epi32( _A_shift, _B_shift );
-	const __m128i less_LSB		= _mm_cmplt_epi32( _A_LSB, _B_LSB );
-	return _mm_or_si128( less_shifted, _mm_and_si128( equal_shifted, less_LSB ) );
-}
 
 inline GPR_t si_bg( GPR_t RA, GPR_t RB )
 {
@@ -274,38 +266,7 @@ inline GPR_t si_mpyhhau( GPR_t RA, GPR_t RB, GPR_t RC )
 
 /* Some SSE extensions*/
 
-#define _mm_srli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFFui8 >> _Imm), _mm_srli_epi32( _A, _Imm ) )
-#define _mm_slli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFFui8 << _Imm), _mm_slli_epi32( _A, _Imm ) )
 
-inline __m128i _mm_cntb_epui8( __m128i _A )
-{
-	const __m128i _55 = _mm_set1_epi32(0x55555555);
-	const __m128i _33 = _mm_set1_epi32(0x33333333);
-	const __m128i _0F = _mm_set1_epi32(0x0F0F0F0F);
-
-	const __m128i t0 = _mm_sub_epi8( _A, _mm_and_si128( _mm_srli_epi8( _A, 1 ), _55 ) );
-	const __m128i t1 = _mm_add_epi8( _mm_and_si128( t0, _33 ), _mm_and_si128( _mm_srli_epi8( t0, 2 ), _33 )  );
-	return _mm_and_si128( _mm_add_epi8( t1, _mm_srli_epi8( t1, 4 ) ), _0F );
-}
-
-inline __m128i _mm_cntb_epi32( __m128i _A )
-{
-	const __m128i _55 = _mm_set1_epi32(0x55555555);
-	const __m128i _33 = _mm_set1_epi32(0x33333333);
-	const __m128i _0F = _mm_set1_epi32(0x0F0F0F0F);
-	const __m128i _01 = _mm_set1_epi32(0x01010101);	
-
-	const __m128i t0 = _mm_sub_epi8( _A, _mm_and_si128( _mm_srli_epi32( _A, 1 ), _55 ) );
-	const __m128i t1 = _mm_add_epi8( _mm_and_si128( t0, _33 ), _mm_and_si128( _mm_srli_epi32( t0, 2 ), _33 )  );
-	const __m128i t2 = _mm_and_si128( _mm_add_epi8( t1, _mm_srli_epi32( t1, 4 ) ), _0F );
-
-	// 32 bit mul
-	auto p0 = _mm_mul_epu32( t2, _01 );
-	auto p1 = _mm_mul_epu32( _mm_srli_si128(t2, 4), _mm_srli_si128(_01, 4) );
-	auto p3 = _mm_shuffle_ps(_mm_castsi128_ps(p0), _mm_castsi128_ps(p1), _MM_SHUFFLE (2,0,2,0));
-
-	return _mm_srli_epi32( _mm_castps_si128(p3), 24 );
-}
 
 inline GPR_t si_selb( GPR_t RA, GPR_t RB, GPR_t RC )
 {
@@ -348,10 +309,101 @@ inline GPR_t si_clz( GPR_t RA )
 
 
 /************************************************************************/
-/* Integer                                                                     */
+/* Comparison: EQ, GT, LGT                                              */
 /************************************************************************/ 
 
-// Add
+inline GPR_t si_ceqb( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi8( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_ceqh( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi16( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_ceq( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_ceqbi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi8( _mm_castps_si128( RA ), _mm_set1_epi8( (int8_t)IMM ) ) );
+}
+
+inline GPR_t si_ceqhi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi16( _mm_castps_si128( RA ), _mm_set1_epi16( (int16_t)IMM ) ) );
+}
+
+inline GPR_t si_ceqi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpeq_epi32( _mm_castps_si128( RA ), _mm_set1_epi32( (int32_t)IMM ) ) );
+}
+
+
+
+inline GPR_t si_cgtb( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi8( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_cgth( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi16( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_cgt( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_cgtbi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi8( _mm_castps_si128( RA ), _mm_set1_epi8( (int8_t)IMM ) ) );
+}
+
+inline GPR_t si_cgthi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi16( _mm_castps_si128( RA ), _mm_set1_epi16( (int16_t)IMM ) ) );
+}
+
+inline GPR_t si_cgti( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epi32( _mm_castps_si128( RA ), _mm_set1_epi32( (int32_t)IMM ) ) );
+}
+
+
+inline GPR_t si_clgtb( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu8( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_clgth( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu16( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_clgt( GPR_t RA, GPR_t RB )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) ) );
+}
+
+inline GPR_t si_clgtbi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu8( _mm_castps_si128( RA ), _mm_set1_epi8( (int8_t)IMM ) ) );
+}
+
+inline GPR_t si_clgthi( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu16( _mm_castps_si128( RA ), _mm_set1_epi16( (int16_t)IMM ) ) );
+}
+
+inline GPR_t si_clgti( GPR_t RA, int16_t IMM )
+{
+	return _mm_castsi128_ps( _mm_cmpgt_epu32( _mm_castps_si128( RA ), _mm_set1_epi32( (int32_t)IMM ) ) );
+}
 
 
 

@@ -11,6 +11,8 @@
 #include <Windows.h>
 
 #include "spu_emu.h"
+#include "spu_unittest.h"
+
 #include "spu_internals_x86.h"
 
 //uint32_t spu_assemble( const std::string& istr_text_raw );
@@ -349,7 +351,6 @@ void testXMM( FN1_t fn1, FN2_t fn2 )
 //}
 
 
-#include "spu_unittest.h"
 
 
 //INT WINAPI WinMain( HINSTANCE, HINSTANCE, LPSTR, int )
