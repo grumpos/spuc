@@ -89,21 +89,29 @@ inline GPR_t si_ai( GPR_t RA, int16_t I10 ){
 
 inline GPR_t si_addx( GPR_t RA, GPR_t RB, GPR_t RT ){
 	auto sum	= (v_u32)RA + (v_u32)RB;
-	auto carry	= (v_u32)RT + v_u32(1);
-	return sum & carry;
+	auto carry	= (v_u32)RT & v_u32(1);
+	return sum + carry;
 	//const __m128i sum		= _mm_add_epi32( _mm_castps_si128( RA ), _mm_castps_si128( RB ) );
 	//const __m128i carry	= _mm_and_si128( _mm_castps_si128( RT ), _mm_set1_epi32( 1 ) );
 	//return _mm_castsi128_ps( _mm_add_epi32( sum, carry ) );
 }
 
 inline GPR_t si_cg( GPR_t RA, GPR_t RB ){
-	const __m128i RA_and_RB		= _mm_and_si128( _mm_castps_si128( RA ), _mm_castps_si128( RB ) );
+	auto RA_and_RB		= (v_u32)RA & (v_u32)RB;
+	auto RA_and_RB_LSB	= (RA_and_RB << 31) >> 31;
+	auto RA_shift		= (v_u32)RA >> 1;
+	auto RB_shift		= (v_u32)RB >> 1;
+	auto sum			= RA_shift + RB_shift;
+	auto sum_adjusted	= sum + RA_and_RB_LSB;
+	return sum_adjusted >> 31;
+
+	/*const __m128i RA_and_RB		= _mm_and_si128( _mm_castps_si128( RA ), _mm_castps_si128( RB ) );
 	const __m128i RA_and_RB_LSB = _mm_srli_epi32( _mm_slli_epi32( RA_and_RB, 31 ), 31 );
 	const __m128i RA_shift		= _mm_srli_epi32( _mm_castps_si128( RA ), 1 );
 	const __m128i RB_shift		= _mm_srli_epi32( _mm_castps_si128( RB ), 1 );
 	const __m128i sum			= _mm_add_epi32( RA_shift, RB_shift );
 	const __m128i sum_adjusted	= _mm_add_epi32( sum, RA_and_RB_LSB );
-	return _mm_castsi128_ps( _mm_srli_epi32( sum_adjusted, 31 ) );
+	return _mm_castsi128_ps( _mm_srli_epi32( sum_adjusted, 31 ) );*/
 }
 
 inline GPR_t si_cgx( GPR_t RA, GPR_t RB, GPR_t RT ){

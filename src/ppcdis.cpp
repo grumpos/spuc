@@ -61,25 +61,33 @@ static const ppc_instr_info db_ppc_instr_info[] =
 
 const char* ppc_decode_mnem( uint32_t i )
 {
-	const ppc_i_t instr = {i};
+	ppc_i_t instr;
+	instr.Instuction = i;
 	const auto ilist_begin	= db_ppc_instr_info;
 	const auto ilist_end	= ilist_begin + _countof(db_ppc_instr_info);
 
-	auto find_res_op = std::find_if( ilist_begin, ilist_end, 
+	auto op_match = std::find_if( ilist_begin, ilist_end, 
 		[=]( const ppc_instr_info& ii ) -> bool
 	{
 		return ii.op == instr._I.OPCD;
-	} );
+	} );	
 
-	if ( find_res_op != ilist_end )
+	if ( op_match != ilist_end )
 	{
-		if ( find_res_op->xop == (uint16_t)-1 )
+		if ( op_match->xop == (uint16_t)-1 )
 		{
-			return find_res_op->mnemonic;
+			if ( IFORM_D == op_match->iform )
+			{
+				static char buf[256];
+				sprintf_s( buf, "%s\t$%d, $%d, %%%d", op_match->mnemonic, instr._D.RT,  instr._D.RA, instr._D.D );
+				return buf;
+			}
+
+			return op_match->mnemonic;
 		}
 		else
 		{
-			auto find_res_xop = std::find_if( find_res_op, ilist_end, 
+			auto xop_match = std::find_if( op_match, ilist_end, 
 				[=]( const ppc_instr_info& ii ) -> bool
 			{
 				switch ( ii.iform )
@@ -98,12 +106,20 @@ const char* ppc_decode_mnem( uint32_t i )
 				}
 			} );
 
-			if ( find_res_xop != ilist_end )
+			if ( xop_match != ilist_end )
 			{
-				return find_res_xop->mnemonic;
+				return xop_match->mnemonic;
 			}	
 		}		
 	}
 
-	return "ERROR";
+	
+
+	if ( 4 == instr._I.OPCD )
+		return "AVX";
+
+	static char buf[64];
+
+	_itoa_s( i, buf, 64, 16 );
+	return buf;
 }

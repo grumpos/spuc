@@ -510,7 +510,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
 		__SPU_TEST_R(
 		si_cntb,
-		_mm_set1_epi8(0xFF),
+		_mm_set1_epi8(-1),
 		_mm_set1_epi8(8))
 
 		__SPU_TEST_R(
@@ -596,9 +596,9 @@ fout << "DEFINST( \"" << mnem.substr( 0, mnem.find('[')) << "\",\t IFORM_"
 
 	//
 
-	//SPU_t mySPU;
+	SPU_t mySPU;
 
-	//spu_parse_file( &mySPU, "spu_commands.spu" );
+	spu_parse_file( &mySPU, "spu_commands.spu" );
 
 	////return 0;
 	//

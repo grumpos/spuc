@@ -1,7 +1,7 @@
 #include <intrin.h>
 
-#define _mm_srli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFFui8 >> _Imm), _mm_srli_epi32( _A, _Imm ) )
-#define _mm_slli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFFui8 << _Imm), _mm_slli_epi32( _A, _Imm ) )
+#define _mm_srli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFF >> _Imm), _mm_srli_epi32( _A, _Imm ) )
+#define _mm_slli_epi8( _A, _Imm ) _mm_and_si128( _mm_set1_epi8(0xFF << _Imm), _mm_slli_epi32( _A, _Imm ) )
 
 struct xmm_register
 {
@@ -41,6 +41,18 @@ struct v_u32 : public xmm_register
 		return *this;
 	}
 
+	inline v_u32& operator>>=( int s )
+	{
+		data_ = _mm_castsi128_ps( _mm_srli_epi32( _mm_castps_si128( data_ ), s ) );
+		return *this;
+	}
+
+	inline v_u32& operator<<=( int s )
+	{
+		data_ = _mm_castsi128_ps( _mm_slli_epi32( _mm_castps_si128( data_ ), s ) );
+		return *this;
+	}
+
 	inline v_u32& operator&=( v_u32 RHS ) { data_ = _mm_and_ps( data_, RHS.data_ ); return *this; }
 
 	inline v_u32& operator|=( v_u32 RHS ) { data_ = _mm_or_ps( data_, RHS.data_ ); return *this; }
@@ -60,10 +72,45 @@ inline const v_u32 operator+( v_u32 LHS, v_u32 RHS )
 	return Result;
 }
 
+inline const v_u32 operator-( v_u32 LHS, v_u32 RHS )
+{
+	v_u32 Result = LHS;
+	Result -= RHS;
+	return Result;
+}
+
 inline const v_u32 operator&( v_u32 LHS, v_u32 RHS )
 {
 	v_u32 Result = LHS;
 	Result &= RHS;
+	return Result;
+}
+
+inline const v_u32 operator|( v_u32 LHS, v_u32 RHS )
+{
+	v_u32 Result = LHS;
+	Result |= RHS;
+	return Result;
+}
+
+inline const v_u32 operator^( v_u32 LHS, v_u32 RHS )
+{
+	v_u32 Result = LHS;
+	Result ^= RHS;
+	return Result;
+}
+
+inline const v_u32 operator>>( v_u32 LHS, int Amount )
+{
+	v_u32 Result = LHS;
+	Result >>= Amount;
+	return Result;
+}
+
+inline const v_u32 operator<<( v_u32 LHS, int Amount )
+{
+	v_u32 Result = LHS;
+	Result <<= Amount;
 	return Result;
 }
 

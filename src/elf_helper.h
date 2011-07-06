@@ -8,7 +8,7 @@
 using std::string;
 using std::vector;
 
-struct range_t
+struct memrange_t
 {
 	inline size_t		size() const	{ return length_; }
 	inline void*		begin()			{ return data_; }
@@ -88,113 +88,16 @@ public:
 		: raw_file_(open(FilePath)), OffsetInFile_(OffsetInFile)
 	{
 		_ReadELFHeader();
+
 		_ReadProgramHeaders();
 		_ReadSectionHeaders();
+
 		_ReadRawProgramData();
-		_ReadRawSectionData();		
-		_ReadSectionNames();
-		
+		_ReadRawSectionData();	
+
+		_ReadSectionNames();		
 		_ReadStringTable();
 		_ReadSymbolTable();
-		//close(raw_file_);
-		return;
-		/*
-		std::vector<symbol_type> funtion_symbols;
-		
-		std::copy_if( Symbols.begin(), Symbols.end(), std::back_inserter(funtion_symbols), []( symbol_type& s ) -> bool { 
-			const bool funtion_related = (ELF32_ST_TYPE( s.st_info ) == STT_FUNC) 
-				&& (ELF32_ST_BIND( s.st_info ) == STB_GLOBAL);
-			return funtion_related;
-		});
-
-		std::vector<string> fun_names;
-
-
-		std::transform( funtion_symbols.begin(), funtion_symbols.end(), std::back_inserter( fun_names ),
-			[&]( symbol_type& s ) -> string
-		{ 
-			return StringTBL_[s.st_name];
-		});
-
-
-		std::vector<range_t> fun_bytecodes;
-		std::transform( funtion_symbols.begin(), funtion_symbols.end(), std::back_inserter( fun_bytecodes ),
-			[&]( symbol_type& s ) -> range_t
-		{ 
-			const sheader_type& owner_sh = SHBegin()[s.st_shndx];
-			const size_t fn_offset_in_sh = s.st_value - owner_sh.sh_addr;
-
-			range_t res;
-			res.data_ = ((char*)begin(raw_file_)) + owner_sh.sh_offset + fn_offset_in_sh;
-			res.length_ = s.st_size;
-			return res;
-		});
-
-		assert( fun_bytecodes.size() == fun_names.size() );
-		
-		std::ofstream fout("spu_cpp.cpp");
-		auto fun_sym_iter = funtion_symbols.cbegin();
-		auto fun_name_iter = fun_names.cbegin();
-
-		std::for_each( fun_bytecodes.begin(), fun_bytecodes.end(),
-			[&]( const range_t& bc )
-		{
-			std::list<string> fun_def;
-			const size_t fun_base_address = (fun_sym_iter++)->st_value;
-
-			const uint8_t* bytecode = (uint8_t*)bc.begin();
-
-
-			[&fun_def] // Indent {} blocks
-			{
-				const string indent = "    ";
-				std::stack<std::list<string>::iterator> left_brackets;
-
-				for ( auto it = fun_def.begin(); it != fun_def.end(); ++it )
-				{
-					if ( *it == "{" )
-					{
-						left_brackets.push(it);
-					}
-					else if ( *it == "}"  )
-					{
-						assert(!left_brackets.empty());
-
-						auto block_begin	= ++left_brackets.top();
-						auto block_end		= it;
-
-						std::transform( block_begin, block_end, block_begin,
-							[&indent](string& s) { return indent + s; });
-
-						left_brackets.pop();
-					}
-				}
-			}();
-
-			fout << "void " << *fun_name_iter++ << "()\n{\n";
-
-			//std::copy( fun_def.begin(), fun_def.end(), std::ostream_iterator<string>(fout, "\n") );
-			std::transform( fun_def.begin(), fun_def.end(), std::ostream_iterator<string>(fout, "\n"),
-				[](string& s) { return string("\t") + s;});
-			fout << "}\n\n\n";
-			
-		});
-		*/
-		/*std::vector<symbol_type> objects;
-		std::copy_if( Symbols.begin(), Symbols.end(), std::back_inserter(objects), 
-			[]( symbol_type& s ) -> bool
-		{ 
-			const bool funtion_related = (ELF32_ST_TYPE( s.st_info ) == STT_OBJECT) 
-				&& (ELF32_ST_BIND( s.st_info ) == STB_GLOBAL);
-			return funtion_related;
-		});
-
-		std::vector<string> object_names;
-		std::transform( objects.begin(), objects.end(), std::back_inserter( object_names ),
-			[&]( symbol_type& s ) -> string
-		{ 
-			return string( (const char*)SDBegin()[stbl_sh_index].begin() + s.st_name );
-		});*/
 	}
 	~ElfFile()
 	{
@@ -208,8 +111,8 @@ public:
 	header_type					HeaderLE_;
 	vector<pheader_type>		ProgramHeaders_;
 	vector<sheader_type>		SectionHeaders_;
-	vector<range_t>				PData_;
-	vector<range_t>				SData_;
+	vector<memrange_t>			PData_;
+	vector<memrange_t>			SData_;
 	vector<string>				SHNames_;
 	std::map<uint32_t, string>	StringTBL_;
 	std::vector<symbol_type>	Symbols;
@@ -249,7 +152,7 @@ public:
 		std::for_each( ProgramHeaders_.begin(), ProgramHeaders_.end(), 
 			[&]( const pheader_type& p )
 		{ 
-			range_t fdata;
+			memrange_t fdata;
 			fdata.data_		= GetELFFileBegin() + p.p_offset;
 			fdata.length_	= p.p_filesz;
 
@@ -262,7 +165,7 @@ public:
 		std::for_each( SectionHeaders_.begin(), SectionHeaders_.end(), 
 			[&]( const sheader_type& s )
 		{ 
-			range_t fdata;
+			memrange_t fdata;
 			fdata.data_		= GetELFFileBegin() + s.sh_offset;
 			fdata.length_	= s.sh_size;
 
@@ -274,12 +177,12 @@ public:
 	{
 		if ( 0 != HeaderLE_.e_shstrndx )
 		{
-			const char* SectionNameStringTableBase = (const char*)SData_[HeaderLE_.e_shstrndx].begin();
+			const char* SectionNameSTBL = (const char*)SData_[HeaderLE_.e_shstrndx].begin();
 
 			std::transform( SectionHeaders_.begin(), SectionHeaders_.end(), std::back_inserter( SHNames_ ), 
-				[SectionNameStringTableBase]( const sheader_type& sh )->string
+				[SectionNameSTBL]( const sheader_type& sh )->string
 			{
-				return string( SectionNameStringTableBase + sh.sh_name );
+				return string( SectionNameSTBL + sh.sh_name );
 			});
 		}		
 	}

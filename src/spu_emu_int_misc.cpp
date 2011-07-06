@@ -1,6 +1,6 @@
 #include "spu_emu.h"
 
-#include "spu_unittest.h"
+//#include "spu_unittest.h"
 
 
 
@@ -158,10 +158,10 @@ void spu_eqv( SPU_t* SPU, SPU_INSTRUCTION op )
 	SPU->GPR[op.RR.RT] = _mm_castsi128_ps( _mm_and_si128( _mm_cmpeq_epi32( _mm_castps_si128( SPU->GPR[op.RR.RA] ), _mm_castps_si128( SPU->GPR[op.RR.RB] ) ), _mm_set1_epi32( 1 ) ) );
 }
 
-void spu_selb( SPU_t* SPU, SPU_INSTRUCTION op )
-{
-	//SPU->GPR[op.RRR.RT] = si_selb( SPU->GPR[op.RRR.RA], SPU->GPR[op.RRR.RB], SPU->GPR[op.RRR.RC] );
-}
+//void spu_selb( SPU_t* SPU, SPU_INSTRUCTION op )
+//{
+//	//SPU->GPR[op.RRR.RT] = si_selb( SPU->GPR[op.RRR.RA], SPU->GPR[op.RRR.RB], SPU->GPR[op.RRR.RC] );
+//}
 
 void spu_shufb( SPU_t* SPU, SPU_INSTRUCTION op )
 {

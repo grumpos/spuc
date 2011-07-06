@@ -11,7 +11,7 @@
 #include <vector>
 #include <map>
 #include <set>
-#include "spu_internals_x86.h"
+//#include "spu_internals_x86.h"
 #include "raw.h"
 #include "spu_emu.h"
 #include "spu_idb.h"
@@ -64,76 +64,6 @@ void ReverseBytesInRange( void* data, const char* range_map )
 		++range_map;
 	}	
 }
-/*
-string WordToBitString( uint32_t w )
-{
-	const char* bitrep[] = 
-	{
-		"0000", "0001", "0010", "0011", 
-		"0100", "0101", "0110", "0111", 
-		"1000", "1001", "1010", "1011", 
-		"1100", "1101", "1110", "1111"
-	};
-
-	string res = "0b";
-	for ( ptrdiff_t i = 0; i < 8; i++ )
-	{
-		res += bitrep[(w>>28)&0xF]; 
-		w <<= 4;
-	}
-	return res;
-	
-}*/
-
-
-//
-//template <class Container, class Pred>
-//std::vector<std::pair<typename Container::const_iterator, typename Container::const_iterator>>
-//	find_ranges_if( const Container& c, Pred p )
-//{
-//	std::vector<std::pair<typename Container::const_iterator, typename Container::const_iterator>> result;
-//	/*auto it = std::find_if( c.begin(), c.end(), p );
-//	auto section_begin = it;
-//	bool last_section = true;*/
-//
-//	auto first	= c.cbegin();
-//	auto last	= c.cbegin();
-//
-//	do 
-//	{
-//		first	= std::find_if( first, c.cend(), p );
-//		last	= std::find_if( first, c.cend(), p );
-//
-//		if ( 0 != std::distance( first, last ) )
-//		{
-//			result.push_back( std::make_pair(first, last) );
-//
-//			first = last;
-//		}
-//		else
-//		{
-//			break;
-//		}
-//	} while ( first != c.cend() );
-//
-//	/*while (it != c.end())
-//	{
-//		if ( p(*it) != last_section )
-//		{
-//			result.push_back( std::make_pair(section_begin, it) );
-//			section_begin = it;
-//			last_section = !last_section;
-//		}
-//		++it;
-//	}
-//
-//	result.push_back( std::make_pair(it, c.end()) );*/
-//
-//	return result;
-//}
-
-
-
 
 /*
 struct Ticker
@@ -200,7 +130,7 @@ struct spu_function_t
 	uint32_t end;
 };
 
-struct spu_basic_block_t
+struct basic_block_t
 {
 	size_t first, last;
 };
@@ -248,12 +178,12 @@ bool operator<(const spu_branch_t& lhs, const spu_branch_t& rhs)
 
 struct spu_info_t
 {
-	std::map<string, vector<uint32_t>> heuristics;
+	std::map<string, vector<size_t>>	heuristics;
 	vector<spu_branch_t>				staticBranches;
 	vector<spu_function_t>				FunctionRanges;
-	std::map<uint32_t, string>			functionSymbols;
-	std::map<uint32_t, uint32_t>		jumps;
-	std::map<uint32_t, string>			jumpSymbols;
+	std::map<size_t, string>			functionSymbols;
+	std::map<size_t, uint32_t>			jumps;
+	std::map<size_t, string>			jumpSymbols;
 };
 
 
@@ -264,7 +194,7 @@ spu_program_t spuExtractProgram( ElfFile<ELF_32_traits_t>& elfFile )
 
 	assert( 0 != elfFile.PData_.size() );	
 	assert( 0 != elfFile.ProgramHeaders_.size() );
-	const range_t RawData = elfFile.PData_[ELFPD_EXECUTABLE_OFFSET];
+	const memrange_t RawData = elfFile.PData_[ELFPD_EXECUTABLE_OFFSET];
 	assert( 0 == RawData.size()%4 );
 
 	spu_program_t result = 
@@ -284,7 +214,7 @@ spu_data_t spuExtractData( ElfFile<ELF_32_traits_t>& ElfFile )
 	assert( 0 != ElfFile.ProgramHeaders_.size() );
 	if (ElfFile.PData_.size() == 3)
 	{
-		const range_t RawData = ElfFile.PData_[ELFPD_DATA_OFFSET];
+		const memrange_t RawData = ElfFile.PData_[ELFPD_DATA_OFFSET];
 		assert( 0 == RawData.size()%4 );
 
 		spu_data_t result = 
@@ -305,9 +235,9 @@ void spuSwitchEndianness( spu_program_t* program )
 	std::transform( program->Binary.cbegin(), program->Binary.cend(), program->Binary.begin(),
 		[](uint32_t off)->uint32_t
 	{
-		auto tmp = off;
-		ReverseBytesInRange(&tmp, "\4");
-		return tmp;
+		//auto tmp = off;
+		//ReverseBytesInRange(&tmp, "\4");
+		return _byteswap_ulong(off);
 	});
 }
 
@@ -338,25 +268,29 @@ void spuGatherProgramHeuristics( spu_info_t* info, const spu_program_t* program 
 std::vector<size_t> spuFindSPUOffsetsInELFFile( const string& rawFile )
 {
 	const uint8_t ELF_SPU_ARCH_ID = 23;
+
 	std::vector<size_t> ELFOffsets;
-	for ( size_t off = 0; off != string::npos; )
+
+	for ( size_t off = 0; off != string::npos; off = rawFile.find(ELFMAG, off) )
 	{
 		const Elf32_Ehdr* eh = (Elf32_Ehdr*)&rawFile[off];
+
 		if ( ELF_SPU_ARCH_ID == ((uint8_t*)&eh->e_machine)[1] )
 		{
 			ELFOffsets.push_back( off );
 		}
-		off += sizeof(Elf32_Ehdr);
-		off = rawFile.find(ELFMAG, off);
+
+		off += sizeof(Elf32_Ehdr);		
 	}
+
 	return ELFOffsets;
 }
 
 	
 template<class Pred>
-spu_basic_block_t FindBasicBlock( size_t begin, size_t end, const spu_program_t* program, Pred IsBrach )
+basic_block_t FindBasicBlock( size_t begin, size_t end, const spu_program_t* program, Pred IsBrach )
 {
-	spu_basic_block_t NewBlock;
+	basic_block_t NewBlock;
 	NewBlock.first = begin;
 
 	while ( begin != end && !IsBrach(program->Binary[begin]) )
@@ -376,6 +310,80 @@ spu_basic_block_t FindBasicBlock( size_t begin, size_t end, const spu_program_t*
 	return NewBlock;
 };
 
+struct pflow_node_t
+{
+	pflow_node_t() : next(nullptr), branch(nullptr) {}
+
+	pflow_node_t* next;
+	pflow_node_t* branch;
+	basic_block_t bb;
+};
+
+//template<class Pred>
+//pflow_node_t* FindBasicBlock2( const uint32_t* begin, const uint32_t* end, const spu_program_t* program, Pred IsBrach )
+//{
+//	if ( begin == end )
+//	{
+//		return nullptr;
+//	}
+//
+//	basic_block_t NewBlock;
+//	NewBlock.first = begin - program->Binary.data();
+//
+//	while ( begin != end && !IsBrach(*begin) )
+//	{
+//		++begin;
+//	}	
+//
+//	const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(*begin);
+//	const uint32_t* BranchTarget = begin + OPComponents.IMM;
+//
+//	++begin;
+//
+//	pflow_node_t* n = new pflow_node_t;
+//	NewBlock.last = begin - program->Binary.data();
+//
+//	if ( OPComponents.IMM > 0 )
+//	{
+//		n->next		= FindBasicBlock2( begin, BranchTarget-1, program, IsBrach );
+//		n->branch	= FindBasicBlock2( BranchTarget-1, end, program, IsBrach );
+//	}
+//	else if ( OPComponents.IMM < 0 )
+//	{
+//		n->next		= FindBasicBlock2( begin, end, program, IsBrach );
+//		n->branch	= FindBasicBlock2( BranchTarget-1, begin, program, IsBrach );
+//	}
+//	else
+//	{
+//		return nullptr;
+//	}
+//	
+//	
+//	n->bb = NewBlock;
+//
+//	return n;
+//
+//
+//	/*basic_block_t NewBlock;
+//	NewBlock.first = begin;
+//
+//	while ( begin != end && !IsBrach(program->Binary[begin]) )
+//	{
+//		++begin;
+//	}
+//
+//	if ( begin != end )
+//	{
+//		NewBlock.last = ++begin;
+//	}
+//	else
+//	{
+//		NewBlock.first = NewBlock.last = 0;
+//	}
+//
+//	return NewBlock;*/
+//};
+
 vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_info_t* info )
 {
 	auto& program_local = program;
@@ -383,6 +391,9 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 	const auto& StaticCalls = info->heuristics["brsl"];
 
 	std::set<uint32_t> StaticCallTargets;
+
+	StaticCallTargets.insert( (program->EntryPoint - program->VirtualBaseAddress) / 4 ); // main()
+
 	std::transform( StaticCalls.cbegin(), StaticCalls.cend(), std::inserter(StaticCallTargets, StaticCallTargets.end()),
 		[program](uint32_t IOffset)->uint32_t
 	{
@@ -397,7 +408,7 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 		return result;
 	});
 
-	if ( 0 < info->FunctionRanges.size() )
+	if ( !info->FunctionRanges.empty() )
 	{
 		std::for_each( info->FunctionRanges.begin(), info->FunctionRanges.end() - 1,
 			[]( spu_function_t& FnRange )
@@ -509,49 +520,77 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 		const string BR_RR[] = { "bi", /*"bisl",*/ /*"bisled",*/ "iret", "biz", "binz", "bihz", "bihnz" };
 		auto b = std::count(BR_RR, BR_RR + _countof(BR_RR), mnem );
 
-		return 0 != (a + b);
+		const string STOP[] = { "stop" };
+		auto c = std::count(STOP, STOP + _countof(STOP), mnem );
+
+		return 0 != (a + b + c);
 	};
 
-	vector<spu_basic_block_t> blocks;
+	vector<basic_block_t> blocks;
 
 	
+	enum spu_basic_block_type_t
+	{
+		function_end,
+		unconditional_static_jump,
 
+	};
 	
 
 	auto FindBasicBlockInRange = [&blocks, program_local, IsBrach, GetJumpAmount]( size_t begin, size_t end )
 	{
-		do
+		while ( begin != end )
 		{
-			spu_basic_block_t NewBlock = FindBasicBlock( begin, end, program_local, IsBrach );
+			basic_block_t NewBlock = FindBasicBlock( begin, end, program_local, IsBrach );
 
 			if ( NewBlock.first != NewBlock.last )
 			{
 				blocks.push_back(NewBlock);
 				const uint32_t LastOp = program_local->Binary[NewBlock.last - 1];
 
-				begin = NewBlock.last - 1;
-				begin += GetJumpAmount(LastOp);
+				if ( LastOp == 0 )
+					break;
+
+				begin = NewBlock.last;
+				/*begin += GetJumpAmount(LastOp);
 
 				if ( begin == NewBlock.first )
 				{
-					begin = NewBlock.last;
-				}
+				begin = NewBlock.last;
+				}*/
 			}
 			else
-			{
 				break;
-			}
-
-		} while ( begin != end );
+		}
 	};
 
+	//pflow_node_t* p = FindBasicBlock2( &program->Binary[4], &program->Binary[16], program, IsBrach );
 	
 	// skip SPU GUID
-	FindBasicBlockInRange( 4, 24 );
+	FindBasicBlockInRange( 66, 193 );
+
+	auto MakeFunctionText = [&]( const vector<basic_block_t>& blocks ) -> string
+	{
+		std::ostringstream oss;
+
+		for ( auto i = blocks.cbegin(); i != blocks.cend(); ++i )
+		{
+			for ( auto j = &program->Binary[i->first]; j != &program->Binary[i->last]; ++j )
+			{
+				oss << spu_make_pseudo( (SPU_INSTRUCTION&)(*j), 0 ) << std::endl;
+			}
+			oss << std::endl;
+		}
+
+		return oss.str();
+	};
+
+
+	std::cout << MakeFunctionText( blocks );
 
 	auto& info_local = info;
 
-	vector<spu_basic_block_t> blocks2;
+	vector<basic_block_t> blocks2;
 
 	/*std::for_each( blocks.begin(), blocks.end(),
 		[info_local, program_local, &blocks2](const spu_basic_block_t& block)
@@ -927,11 +966,15 @@ void spuGatherLoads( const spu_program_t* program, spu_info_t* info )
 		const auto& AbsMemOPs = info->heuristics[mnem];
 		auto program_local = program;
 
-		std::transform( AbsMemOPs.begin(), AbsMemOPs.end(), std::inserter(Addresses, Addresses.end()), 
-			[program_local]( uint32_t InstructionOffset )->uint32_t
+		std::transform( 
+			AbsMemOPs.begin(), AbsMemOPs.end(), 
+			std::inserter(Addresses, Addresses.end()), 
+			[program_local]( uint32_t Offset )->uint32_t
 		{
 			const uint32_t LSLR = 0x3ffff & -16;
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(program_local->Binary[InstructionOffset]);
+
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(program_local->Binary[Offset]);
+
 			return ((uint32_t)OPComponents.IMM << 2) & LSLR;
 		});
 	};
@@ -942,11 +985,13 @@ void spuGatherLoads( const spu_program_t* program, spu_info_t* info )
 		auto program_local = program;
 
 		std::transform( RelMemOPs.begin(), RelMemOPs.end(), std::inserter(Addresses, Addresses.end()), 
-			[program_local]( uint32_t InstructionOffset )->uint32_t
+			[program_local]( uint32_t Offset )->uint32_t
 		{
 			const uint32_t LSLR = 0x3ffff & -16;
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(program_local->Binary[InstructionOffset]);
-			return (program_local->VirtualBaseAddress + (InstructionOffset*4) + ((int32_t)OPComponents.IMM << 2)) & LSLR;
+
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(program_local->Binary[Offset]);
+
+			return (program_local->VirtualBaseAddress + (Offset*4) + ((int32_t)OPComponents.IMM << 2)) & LSLR;
 		});
 	};
 
@@ -973,6 +1018,9 @@ void PrintInstrAdresses( uint32_t BaseAddress, vector<string>& instrInfoText )
 	} );
 }
 
+
+
+#include <intrin.h>
 
 void spu_execute( SPU_t* )
 {	
@@ -1012,10 +1060,13 @@ void spu_execute( SPU_t* )
 	fraw.resize(size(bearelf));
 	memcpy( &fraw[0], begin(bearelf), size(bearelf) );
 	close(bearelf);
+
+	//ElfFile<ELF_64_traits_t> be( "D:\\Torrents\\BLES00945\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf", 0 );
+	//ElfFile<ELF_64_traits_t> be2( "D:\\Dev\\segata-crossedgeu\\BLUS30348\\PS3_GAME\\USRDIR\\eboot.elf", 0 );	
 	
 	vector<size_t> ELF_offsets = spuFindSPUOffsetsInELFFile(fraw);
 
-	std::for_each( ELF_offsets.cbegin(), ELF_offsets.cbegin()+1,
+	std::for_each( ELF_offsets.cbegin(), ELF_offsets.cend(),
 		[](uint32_t off)
 	{
 		ElfFile<ELF_32_traits_t> SPU = ElfFile<ELF_32_traits_t>("D:\\Torrents\\BLES00945\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf", off);
@@ -1026,11 +1077,11 @@ void spu_execute( SPU_t* )
 		spuSwitchEndianness( &data );
 		spu_info_t info;
 		spuGatherProgramHeuristics( &info, &program );
-		spuGatherStaticBranches( &program, &info );		
-		spuGatherJumps( &program, &info );
-		spuGatherLoads( &program, &info );
+		//spuGatherStaticBranches( &program, &info );		
+		//spuGatherJumps( &program, &info );
+		//spuGatherLoads( &program, &info );
 		const vector<uint32_t> fn_begins = spuGatherStaticCallTargets( &program, &info );
-		spuBuildFunctionSymbols( &info, fn_begins );
+		//spuBuildFunctionSymbols( &info, fn_begins );
 		
 		// write out extra info
 		vector<string> instrInfoTextPrefix( program.Binary.size(), "" );
@@ -1090,7 +1141,7 @@ void spu_execute( SPU_t* )
 		HideStackOPs("stqx");
 		
 		// indent functions
-		std::for_each( info.FunctionRanges.begin(), info.FunctionRanges.end(),
+		/*std::for_each( info.FunctionRanges.begin(), info.FunctionRanges.end(),
 			[&instrInfoTextPrefix]( const spu_function_t& fn )
 		{
 			auto beg = instrInfoTextPrefix.begin() + fn.begin + 1;
@@ -1102,7 +1153,7 @@ void spu_execute( SPU_t* )
 				++beg;
 			}
 
-		});
+		});*/
 
 		// indent static branches
 		/*std::for_each( info.staticBranches.begin(), info.staticBranches.end(),
@@ -1166,40 +1217,40 @@ void spu_parse_file( SPU_t* targetSPU, const char* /*path */)
 	spu_execute( targetSPU );
 }
 
-string BytestreamToHexString( const void* data, size_t length, uint32_t stride )
-{
-	string out, hex_dump, txt_dump;
-
-	for ( size_t i = 0; i < length; ++i )
-	{	
-		if ( 0 != i
-			&& 0 == (i % stride) )
-		{
-			out += hex_dump;
-			out += " | ";
-			out += txt_dump;
-			out += "\n";
-			hex_dump.clear();
-			txt_dump.clear();
-		}
-
-		uint8_t byte = ((const uint8_t*)data)[i];
-		hex_dump.push_back( "0123456789ABCDEF"[0xF & (byte >> 4)] );
-		hex_dump.push_back( "0123456789ABCDEF"[0xF & byte] );
-		hex_dump.push_back( ' ' );
-		txt_dump.push_back( byte >= 0x20 ? (char)byte : '.' );
-
-	}
-
-	if ( !hex_dump.empty() )
-	{
-		hex_dump.resize( 16*3, ' ' );
-		txt_dump.resize( 16*3, ' ' );
-		out += hex_dump;
-		out += " | ";
-		out += txt_dump;
-		out += "\n";
-	}
-
-	return out;
-}
+//string BytestreamToHexString( const void* data, size_t length, uint32_t stride )
+//{
+//	string out, hex_dump, txt_dump;
+//
+//	for ( size_t i = 0; i < length; ++i )
+//	{	
+//		if ( 0 != i
+//			&& 0 == (i % stride) )
+//		{
+//			out += hex_dump;
+//			out += " | ";
+//			out += txt_dump;
+//			out += "\n";
+//			hex_dump.clear();
+//			txt_dump.clear();
+//		}
+//
+//		uint8_t byte = ((const uint8_t*)data)[i];
+//		hex_dump.push_back( "0123456789ABCDEF"[0xF & (byte >> 4)] );
+//		hex_dump.push_back( "0123456789ABCDEF"[0xF & byte] );
+//		hex_dump.push_back( ' ' );
+//		txt_dump.push_back( byte >= 0x20 ? (char)byte : '.' );
+//
+//	}
+//
+//	if ( !hex_dump.empty() )
+//	{
+//		hex_dump.resize( 16*3, ' ' );
+//		txt_dump.resize( 16*3, ' ' );
+//		out += hex_dump;
+//		out += " | ";
+//		out += txt_dump;
+//		out += "\n";
+//	}
+//
+//	return out;
+//}
