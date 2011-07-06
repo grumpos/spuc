@@ -414,9 +414,9 @@ struct SPU_IDB
 
 static const SPU_IDB db_op_ltb[] =
 {
-#define _A0()        {0,{0,0,0,0}}
-#define _A1(a)       {1,{a,0,0,0}}
-#define _A2(a,b)     {2,{a,b,0,0}}
+#define _A0()        {0xFF,{0xFF,0xFF,0xFF,0}}
+#define _A1(a)       {1,{a,0xFF,0xFF,0}}
+#define _A2(a,b)     {2,{a,b,0xFF,0}}
 #define _A3(a,b,c)   {3,{a,b,c,0}}
 #define _A4(a,b,c,d) {4,{a,b,c,d}}
 
@@ -437,9 +437,9 @@ static const SPU_IDB db_op_ltb[] =
 void spu_build_op_db()
 {
 	
-#define _A0()        {0,{0,0,0,0}}
-#define _A1(a)       {1,{a,0,0,0}}
-#define _A2(a,b)     {2,{a,b,0,0}}
+#define _A0()        {0xFF,{0xFF,0xFF,0xFF,0}}
+#define _A1(a)       {1,{a,0xFF,0xFF,0}}
+#define _A2(a,b)     {2,{a,b,0xFF,0}}
 #define _A3(a,b,c)   {3,{a,b,c,0}}
 #define _A4(a,b,c,d) {4,{a,b,c,d}}
 
@@ -530,46 +530,46 @@ SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 		}
 	case SPU_OP_TYPE_RR:
 		{
-			const SPU_OP_COMPONENTS result = { op.RR.RT,	op.RR.RA,	op.RR.RB,	0,			0 };
+			const SPU_OP_COMPONENTS result = { op.RR.RT,	op.RR.RA,	op.RR.RB,	0xFF,		0 };
 			return result;
 		}
 	case SPU_OP_TYPE_RI7:
 		{
-			const SPU_OP_COMPONENTS result = { op.RI7.RT,	op.RI7.RA,	0,			0,			SignExtend(op.RI7.I7, 7) };
+			const SPU_OP_COMPONENTS result = { op.RI7.RT,	op.RI7.RA,	0xFF,		0xFF,		SignExtend(op.RI7.I7, 7) };
 			return result;
 		}
 	case SPU_OP_TYPE_RI8:
 		{
-			const SPU_OP_COMPONENTS result = { op.RI8.RT,	op.RI8.RA,	0,			0,			SignExtend(op.RI8.I8, 8) };
+			const SPU_OP_COMPONENTS result = { op.RI8.RT,	op.RI8.RA,	0xFF,		0xFF,		SignExtend(op.RI8.I8, 8) };
 			return result;
 		}
 	case SPU_OP_TYPE_RI10:
 		{
-			const SPU_OP_COMPONENTS result = { op.RI10.RT,	op.RI10.RA,	0,			0,			SignExtend(op.RI10.I10, 10) };
+			const SPU_OP_COMPONENTS result = { op.RI10.RT,	op.RI10.RA,	0xFF,		0xFF,		SignExtend(op.RI10.I10, 10) };
 			return result;
 		}
 	case SPU_OP_TYPE_RI16:
 		{
-			const SPU_OP_COMPONENTS result = { op.RI16.RT,	0,			0,			0,			SignExtend(op.RI16.I16, 16) };
+			const SPU_OP_COMPONENTS result = { op.RI16.RT,	0xFF,		0xFF,		0xFF,		SignExtend(op.RI16.I16, 16) };
 			return result;
 		}
 	case SPU_OP_TYPE_RI18:
 		{
-			const SPU_OP_COMPONENTS result = { op.RI18.RT,	0,			0,			0,			SignExtend(op.RI18.I18, 18) };
+			const SPU_OP_COMPONENTS result = { op.RI18.RT,	0xFF,		0xFF,		0xFF,		SignExtend(op.RI18.I18, 18) };
 			return result;
 		}
 	case SPU_OP_TYPE_LBT:
 		{
 			const uint32_t BRTARG = (uint32_t)SignExtend( op.LBT.I16, 16 );
 			const uint32_t BRINST = (uint32_t)SignExtend( ((uint32_t)op.LBT.ROH << 7) | (uint32_t)op.LBT.ROL, 11 );
-			const SPU_OP_COMPONENTS result = { 0, 0, 0, 0, (int64_t)(((uint64_t)BRTARG << 32) | (uint64_t)BRINST) };
+			const SPU_OP_COMPONENTS result = { 0xFF, 0xFF, 0xFF, 0xFF, (int64_t)(((uint64_t)BRTARG << 32) | (uint64_t)BRINST) };
 			return result;
 		}
 	case SPU_OP_TYPE_LBTI:
 		{
 			const uint32_t BRTARG = (uint32_t)SignExtend( ((uint32_t)op.LBTI.ROH << 7) | (uint32_t)op.LBTI.ROL, 11 );
 			const uint32_t BRINST = 0;
-			const SPU_OP_COMPONENTS result = { 0, op.LBTI.RA, 0, 0, (int64_t)(((uint64_t)BRTARG << 32) | (uint64_t)BRINST) };
+			const SPU_OP_COMPONENTS result = { 0xFF, op.LBTI.RA, 0xFF, 0xFF, (int64_t)(((uint64_t)BRTARG << 32) | (uint64_t)BRINST) };
 			return result;
 		}
 	default:

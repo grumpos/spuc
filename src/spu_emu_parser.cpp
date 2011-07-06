@@ -30,15 +30,6 @@ enum
 	MASK_START = 0xBBBBBBBB
 };
 
-void spu_extecute_single( SPU_t* SPU, uint32_t op )
-{
-	auto solver = spu_decode_op_solver( op );	
-
-	SPU_INSTRUCTION instr;
-	instr.Instruction = op;
-	solver( SPU, instr );	
-}
-
 //static const uint64_t ENDIAN_HELPER = 1;
 //static const uint64_t SYSTEM_ENDIAN_LE = (uint64_t)((uint8_t&)ENDIAN_HELPER&1);
 
@@ -182,7 +173,7 @@ struct spu_info_t
 	vector<spu_branch_t>				staticBranches;
 	vector<spu_function_t>				FunctionRanges;
 	std::map<size_t, string>			functionSymbols;
-	std::map<size_t, uint32_t>			jumps;
+	std::map<size_t, size_t>			jumps;
 	std::map<size_t, string>			jumpSymbols;
 };
 
@@ -261,7 +252,7 @@ void spuGatherProgramHeuristics( spu_info_t* info, const spu_program_t* program 
 		info->heuristics[spu_decode_op_mnemonic(code)].push_back(i++);
 	});
 
-	info->functionSymbols[(program->EntryPoint - program->VirtualBaseAddress)>>2] = "main";
+	info->functionSymbols[(program->EntryPoint - program->VirtualBaseAddress) / 4] = "main";
 }
 
 
@@ -319,71 +310,6 @@ struct pflow_node_t
 	basic_block_t bb;
 };
 
-//template<class Pred>
-//pflow_node_t* FindBasicBlock2( const uint32_t* begin, const uint32_t* end, const spu_program_t* program, Pred IsBrach )
-//{
-//	if ( begin == end )
-//	{
-//		return nullptr;
-//	}
-//
-//	basic_block_t NewBlock;
-//	NewBlock.first = begin - program->Binary.data();
-//
-//	while ( begin != end && !IsBrach(*begin) )
-//	{
-//		++begin;
-//	}	
-//
-//	const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(*begin);
-//	const uint32_t* BranchTarget = begin + OPComponents.IMM;
-//
-//	++begin;
-//
-//	pflow_node_t* n = new pflow_node_t;
-//	NewBlock.last = begin - program->Binary.data();
-//
-//	if ( OPComponents.IMM > 0 )
-//	{
-//		n->next		= FindBasicBlock2( begin, BranchTarget-1, program, IsBrach );
-//		n->branch	= FindBasicBlock2( BranchTarget-1, end, program, IsBrach );
-//	}
-//	else if ( OPComponents.IMM < 0 )
-//	{
-//		n->next		= FindBasicBlock2( begin, end, program, IsBrach );
-//		n->branch	= FindBasicBlock2( BranchTarget-1, begin, program, IsBrach );
-//	}
-//	else
-//	{
-//		return nullptr;
-//	}
-//	
-//	
-//	n->bb = NewBlock;
-//
-//	return n;
-//
-//
-//	/*basic_block_t NewBlock;
-//	NewBlock.first = begin;
-//
-//	while ( begin != end && !IsBrach(program->Binary[begin]) )
-//	{
-//		++begin;
-//	}
-//
-//	if ( begin != end )
-//	{
-//		NewBlock.last = ++begin;
-//	}
-//	else
-//	{
-//		NewBlock.first = NewBlock.last = 0;
-//	}
-//
-//	return NewBlock;*/
-//};
-
 vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_info_t* info )
 {
 	auto& program_local = program;
@@ -422,86 +348,86 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 	//////////////////////////////////////////////////////////////////////////
 
 
-	auto IsNOP = [](uint32_t op)->bool
-	{
-		return 1 == (op >> 21) || 513 == (op >> 21);
-	};
+	//auto IsNOP = [](uint32_t op)->bool
+	//{
+	//	return 1 == (op >> 21) || 513 == (op >> 21);
+	//};
 
-	auto IsSTOP = [](uint32_t op)->bool
-	{
-		return 0 == (op >> 21) || 320 == (op >> 21);
-	};
+	//auto IsSTOP = [](uint32_t op)->bool
+	//{
+	//	return 0 == (op >> 21) || 320 == (op >> 21);
+	//};
 
-	auto IsUnconditionalReturn = [](uint32_t op)->bool
-	{
-		if ( 0x1a8 == spu_decode_op_opcode(op) ) // bi
-		{
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
-			if ( 0 == OPComponents.RA )
-			{
-				return true;
-			}
-		}
-		return false;
-	};
+	//auto IsUnconditionalReturn = [](uint32_t op)->bool
+	//{
+	//	if ( 0x1a8 == spu_decode_op_opcode(op) ) // bi
+	//	{
+	//		const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
+	//		if ( 0 == OPComponents.RA )
+	//		{
+	//			return true;
+	//		}
+	//	}
+	//	return false;
+	//};
 
-	auto IsConditionalReturn = [](uint32_t op)->bool
-	{
-		/*const uint32_t opcode = op >> 21;
-		if ( 296 == opcode || 297 == opcode || 298 == opcode || 299 == opcode || 424 == opcode ) // bi*
-		{
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
-			if ( 0 == OPComponents.RA )
-			{
-				return true;
-			}
-		}*/
+	//auto IsConditionalReturn = [](uint32_t op)->bool
+	//{
+	//	/*const uint32_t opcode = op >> 21;
+	//	if ( 296 == opcode || 297 == opcode || 298 == opcode || 299 == opcode || 424 == opcode ) // bi*
+	//	{
+	//		const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
+	//		if ( 0 == OPComponents.RA )
+	//		{
+	//			return true;
+	//		}
+	//	}*/
 
-		/* Indirect conditional jumps to the link register is equivalent to:
+	//	/* Indirect conditional jumps to the link register is equivalent to:
 
-			if( condition )
-				return;
+	//		if( condition )
+	//			return;
 
-			Indirect unconditional jumps to the link register is equivalent to:
+	//		Indirect unconditional jumps to the link register is equivalent to:
 
-			return;
-		*/
+	//		return;
+	//	*/
 
-		switch(spu_decode_op_opcode(op))
-		{
-		case 0x128: // biz
-		case 0x129: // binz
-		case 0x12a: // bihz
-		case 0x12b: // bihnz
-			{
-				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
-				if ( 0 == OPComponents.RA )
-				{
-					return true;
-				}
-			}
-		default:
-			return false;
-		}
-	};
+	//	switch(spu_decode_op_opcode(op))
+	//	{
+	//	case 0x128: // biz
+	//	case 0x129: // binz
+	//	case 0x12a: // bihz
+	//	case 0x12b: // bihnz
+	//		{
+	//			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
+	//			if ( 0 == OPComponents.RA )
+	//			{
+	//				return true;
+	//			}
+	//		}
+	//	default:
+	//		return false;
+	//	}
+	//};
 
-	auto GetJumpAmount = [](uint32_t op) -> int32_t
-	{
-		switch(spu_decode_op_opcode(op))
-		{
-		case 0x100: // brz
-		case 0x108: // brnz
-		case 0x110: // brhz
-		case 0x118: // brhnz
-		case 0x190: // br
-			{
-				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
-				return (int32_t)OPComponents.IMM;
-			}
-		default:
-			return 0;
-		}
-	};
+	//auto GetJumpAmount = [](uint32_t op) -> int32_t
+	//{
+	//	switch(spu_decode_op_opcode(op))
+	//	{
+	//	case 0x100: // brz
+	//	case 0x108: // brnz
+	//	case 0x110: // brhz
+	//	case 0x118: // brhnz
+	//	case 0x190: // br
+	//		{
+	//			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
+	//			return (int32_t)OPComponents.IMM;
+	//		}
+	//	default:
+	//		return 0;
+	//	}
+	//};
 
 	auto IsBrach = [](uint32_t op)->bool
 	{
@@ -537,7 +463,7 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 	};
 	
 
-	auto FindBasicBlockInRange = [&blocks, program_local, IsBrach, GetJumpAmount]( size_t begin, size_t end )
+	auto FindBasicBlockInRange = [&blocks, program_local, IsBrach]( size_t begin, size_t end )
 	{
 		while ( begin != end )
 		{
@@ -592,244 +518,7 @@ vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_i
 
 	vector<basic_block_t> blocks2;
 
-	/*std::for_each( blocks.begin(), blocks.end(),
-		[info_local, program_local, &blocks2](const spu_basic_block_t& block)
-	{
-		const uint32_t LastOP = program_local->Binary[block.last-1];
-		if ( 0x190 == spu_decode_op_opcode(LastOP) ) // br
-		{
-			const uint32_t JumpTo = info_local->jumps[block.last-1];
-			const spu_basic_block_t NewBlock = FindBasicBlock( JumpTo, program_local->Binary.size() );
-			if ( NewBlock.first != NewBlock.last )
-			{
-				blocks2.push_back(NewBlock);
-			}
-		}
-	});*/
-
-
-	/*auto InsideBranch = [](uint32_t op, const spu_branch_t& br)->bool
-	{
-		return op >= br.BranchBlockBegin && op < br.BranchBlockEnd;
-	};*/
-
-// 	/*auto Instructions = program->Binary;
-// 
-// 	std::for_each( info->staticBranches.begin(), info->staticBranches.end(),
-// 		[&Instructions](const spu_branch_t& br)
-// 	{
-// 		auto i = br.BranchBlockBegin;
-// 		while ( i != br.BranchBlockEnd )
-// 			Instructions[i++] = MASK_IGNORED;
-// 	});
-// 
-// 	std::transform( Instructions.begin(), Instructions.end(), Instructions.begin(),
-// 		[=](uint32_t op)->uint32_t
-// 	{
-// 		if ( IsJumpToLR(op) )
-// 			return MASK_RETURN;
-// 		else if ( IsNOP(op) )
-// 			return MASK_NOP;
-// 		else if ( IsSTOP(op) )
-// 			return MASK_STOP;
-// 		else
-// 			return op;
-// 	});
-// 
-// 	std::set<spu_function_t> FnSimple;
-// 	std::set<spu_function_t> FnMultiReturn;
-// 	std::set<spu_function_t> FnNoReturn;
-// 	std::set<spu_function_t> WUT;
-// 
-// 	
-// 
-// 	std::for_each( info->FunctionRanges.begin(), info->FunctionRanges.end(),
-// 		[&](const spu_function_t& fn)
-// 	{
-// 		auto fnb = Instructions.begin() + fn.begin;
-// 		auto fne = Instructions.begin() + fn.end;
-// 
-// 		auto RetCount = std::count( fnb, fne, MASK_RETURN );
-// 		auto STOPCount = std::count( fnb, fne, MASK_STOP );
-// 
-// 		/ *std::set<uint32_t> Jumps;
-// 
-// 		auto i = 0;
-// 		std::for_each( fnb, fne, 
-// 			[&](uint32_t op)
-// 		{
-// 			if ( 0x64 == (op >> 23) )
-// 			{
-// 				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
-// 				if ( OPComponents.IMM < 0 )
-// 				{
-// 					if (abs(OPComponents.IMM) > i)
-// 					{
-// 						WUT.insert(fn);
-// 					}
-// 				}
-// 				else
-// 				{
-// 					if (fnb + i + OPComponents.IMM >= fne)
-// 					{
-// 						WUT.insert(fn);
-// 					}
-// 				}				
-// 			}
-// 			++i;
-// 		});* /
-// 
-// 		switch ( RetCount )
-// 		{
-// 		case 0:		
-// 			{
-// 				FnNoReturn.insert(fn);		break;
-// 			}
-// 		case 1:	
-// 			{
-// 				// handle case when there is .data/.bss after return. mostly at the end of the binary
-// 				auto ret_it = std::find( fnb, fne, MASK_RETURN );				
-// 				if ( ret_it != fne )
-// 				{
-// 					++ret_it;
-// 					if ( MASK_NOP == *ret_it )
-// 						++ret_it;
-// 						
-// 					const spu_function_t NewRange = { 
-// 						(uint32_t)std::distance(Instructions.begin(), fnb), 
-// 						(uint32_t)std::distance(Instructions.begin(), ret_it) };
-// 					FnSimple.insert(NewRange);	
-// 				}
-// 				break;
-// 			}
-// 		default:	
-// 			{
-// 				auto b = fnb;
-// 
-// 				while ( b != fne )
-// 				{
-// 					auto e = std::find( b, fne, MASK_RETURN );
-// 					
-// 					if ( e != fne )
-// 					{		
-// 						++e;
-// 						if ( MASK_NOP == *e )
-// 							++e;
-// 					}
-// 
-// 					const spu_function_t NewRange = { 
-// 						(uint32_t)std::distance(Instructions.begin(), b), 
-// 						(uint32_t)std::distance(Instructions.begin(), e) };
-// 					FnMultiReturn.insert(NewRange);	
-// 					b = e;
-// 				};
-// 				break;
-// 			}
-// 		};
-// 	});
-// 
-// 	info->FunctionRanges.clear();
-// 	std::copy( FnSimple.cbegin(), FnSimple.cend(), std::back_inserter(info->FunctionRanges));
-// 	std::copy( FnMultiReturn.cbegin(), FnMultiReturn.cend(), std::back_inserter(info->FunctionRanges));
-// 	std::copy( FnNoReturn.cbegin(), FnNoReturn.cend(), std::back_inserter(info->FunctionRanges));*/
-
-	/*auto FnRangeBegin = Instructions.begin() + 4; // skip SPU GUID
-	auto FnRangeEnd = FnRangeBegin;
-
-	vector<spu_function_t> FnRanges;
 	
-	while ( FnRangeEnd != Instructions.end() )
-	{
-		FnRangeEnd = std::find( FnRangeBegin, Instructions.end(), MASK_RETURN );
-		if ( FnRangeEnd != Instructions.end() )
-		{
-			do 
-			{
-				++FnRangeEnd;
-			} while ( FnRangeEnd != Instructions.end() && *FnRangeEnd == MASK_NOP );
-			spu_function_t NewFnRange = { std::distance( Instructions.begin(), FnRangeBegin), std::distance( Instructions.begin(), FnRangeEnd) };
-			FnRanges.push_back(NewFnRange);
-			FnRangeBegin = FnRangeEnd;
-		}
-	}*/
-
-	/*vector<spu_function_t> FnUniq = FnRanges;
-	std::copy( info->FunctionRanges.begin(), info->FunctionRanges.end(), std::back_inserter(FnUniq) );
-	std::sort( FnUniq.begin(), FnUniq.end() );
-	auto NewEnd = std::unique(FnUniq.begin(), FnUniq.end() );
-	FnUniq.swap( vector<spu_function_t>(FnUniq.begin(), NewEnd));*/
-	//std::unique_copy()
-
-	/*vector<spu_function_t> FnUnref;
-
-	auto ScanFnRangeForSubranges = [=, &FnUnref](spu_function_t& FnRange)
-	{
-		auto NextBrRange = std::find_if(info->staticBranches.begin(), info->staticBranches.end(), 
-			[&FnRange](const spu_branch_t& br)->bool
-		{
-			return FnRange.begin <= br.BranchBlockBegin;
-		});
-
-
-		uint32_t i = FnRange.begin;
-		uint32_t FnBegin = FnRange.begin;
-
-		while ( i < FnRange.end )
-		{			
-			if ( i == NextBrRange->BranchBlockBegin )	// skip branches
-			{
-				while ( InsideBranch(i, *NextBrRange) )
-					++NextBrRange;
-				i = (NextBrRange-1)->BranchBlockEnd;
-			}
-			else if ( IsJumpToLR(program->Binary[i]) ) // function local level return found
-			{			
-				// anything else after it?
-				auto NextNonNOPInstruction = i+1; 
-				while ( IsNOP(program->Binary[NextNonNOPInstruction]) )
-					++NextNonNOPInstruction;
-				
-				spu_function_t NewFnRange = { FnBegin, NextNonNOPInstruction };
-				FnUnref.push_back(NewFnRange);
-				FnBegin = NextNonNOPInstruction;	
-				i = NextNonNOPInstruction;
-			}
-			else
-			{
-				++i;
-			}		
-		}
-	};*/
-
-	/*do 
-	{
-		const size_t NewFnCount = FnUnref.size();
-		std::copy( FnUnref.begin(), FnUnref.end(), std::back_inserter(info->FunctionRanges) );
-		FnUnref.clear();
-		std::for_each( info->FunctionRanges.begin(), info->FunctionRanges.end(), ScanFnRangeForSubranges );
-				
-	} while ( !FnUnref.empty() );
-
-	
-	std::for_each( info->FunctionRanges.begin(), info->FunctionRanges.end(), ScanFnRangeForSubranges );	*/
-
-	/*vector<uint32_t> nops, rets;
-	uint32_t i = 0;
-	std::for_each( program->Binary.cbegin(), program->Binary.cend(),
-		[&](uint32_t op)
-	{
-		if ( IsNOP(op) )
-		{
-			nops.push_back(0x3000 + i*4);
-		}
-		if ( IsJumpToLR(op) )
-		{
-			rets.push_back(0x3000 + i*4);
-		}
-
-		++i;
-	});*/
-
 	return vector<uint32_t>( StaticCallTargets.begin(), StaticCallTargets.end() );
 }
 
