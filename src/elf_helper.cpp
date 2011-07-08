@@ -124,6 +124,18 @@ namespace elf
 		}
 	}
 
+	size_t EntryPointIndex( const void* ELF )
+	{
+		assert( ELF );
+		assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
+
+		_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;
+
+		_32_traits_t::pheader_type* p = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+
+		return (h->e_entry - p->p_vaddr) / 4;
+	}
+
 	namespace spu
 	{
 		/*void LoadImage( memmap_t* ELF, vector<uint8_t>& Image )

@@ -24,8 +24,8 @@ SPU steps:
 
 SPU optimizations:
 
-- Turn pseudeo-assignments ( adding 0, oring 0, etc. ) into normal assignments
+- Turn pseudeo-assignments ( ADDing 0, ORing 0, etc. ) into normal assignments
 
-- Turn pseudo-setzeros ( fsmbi( 0 ), etc. ) into direct setzeros
+- Turn pseudo-setzeros ( FSMBI( 0 ), etc. ) into direct setzeros
 
 - Remove stack instructions ( almost everything that uses GPR1 )

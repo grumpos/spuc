@@ -235,6 +235,8 @@ namespace elf
 
 	void HeadersToSystemEndian( void* ELF );
 
+	size_t EntryPointIndex( const void* ELF );
+
 	namespace spu
 	{
 		vector<uint32_t> LoadExecutable( const void* ELF );

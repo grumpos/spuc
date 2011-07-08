@@ -1,15 +1,16 @@
-//
-//#include <vector>
-//#include <algorithm>
-//#include <map>
-//#include <cstdint>
-//#include <string>
-//#include <set>
-//#include <iterator>
-//#include "spu_idb.h"
-//
-//using namespace std;
-//
+
+#include <vector>
+#include <algorithm>
+#include <map>
+#include <cstdint>
+#include <string>
+#include <set>
+#include <iterator>
+
+#include "spu_idb.h"
+
+#include "basic_blocks.h"
+
 //struct spu_program_t
 //{
 //	size_t EntryPoint;
@@ -26,8 +27,68 @@
 //	std::map<size_t, size_t>			jumps;
 //	std::map<size_t, string>			jumpSymbols;
 //};
-//
-//
+
+
+namespace spu
+{
+	using namespace std;
+
+
+	vector<basic_block_t> BuildInitialBlocks( const vector<uint32_t>& Binary )
+	{
+		auto Heuristics = BuildHeuristics( Binary );
+
+		const auto& FunCallInstr = info->heuristics["brsl"];
+		
+		std::set<uint32_t> StaticCallTargets;
+		
+		StaticCallTargets.insert( (program->EntryPoint - program->VirtualBaseAddress) / 4 ); // main()
+		
+		std::transform( 
+			FunCallInstr.cbegin(), FunCallInstr.cend(), 
+			std::inserter(StaticCallTargets, StaticCallTargets.end()),
+			[program](uint32_t IOffset)->uint32_t
+		{
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(program->Binary[IOffset]);
+			return IOffset + (int16_t)OPComponents.IMM;
+		});
+		
+		/*std::transform( StaticCallTargets.cbegin(), StaticCallTargets.cend(), std::back_inserter(info->FunctionRanges),
+			[](uint32_t FnBeginOffset)->spu_function_t
+		{
+			const spu_function_t result = { FnBeginOffset, 0 };
+			return result;
+		});
+		
+		if ( !info->FunctionRanges.empty() )
+		{
+			std::for_each( info->FunctionRanges.begin(), info->FunctionRanges.end() - 1,
+				[]( spu_function_t& FnRange )
+			{
+				auto Next = (&FnRange + 1);
+				FnRange.end = Next->begin;
+			});
+			info->FunctionRanges.back().end = program->Binary.size();
+		}	*/
+
+		return vector<basic_block_t>();
+	}
+
+	map<string, vector<size_t>> BuildHeuristics( const vector<uint32_t>& Binary )
+	{
+		uint32_t i = 0;
+
+		map<string, vector<size_t>> Heuristics;
+
+		for_each( Binary.cbegin(), Binary.cend(),
+			[&Heuristics, &i](uint32_t Instr)
+		{		
+			Heuristics[spu_decode_op_mnemonic(Instr)].push_back(i++);
+		});
+
+		return Heuristics;
+	}
+};
 //
 //vector<uint32_t> spuGatherStaticCallTargets( const spu_program_t* program, spu_info_t* info )
 //{

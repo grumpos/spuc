@@ -359,7 +359,7 @@ void testXMM( FN1_t fn1, FN2_t fn2 )
 #include <intrin.h>
 #include "raw.h"
 #include "elf_helper.h"
-
+#include "basic_blocks.h"
 
 
 using namespace std;
@@ -401,8 +401,11 @@ int main( int /*argc*/, char** /*argv*/ )
 			SPUBinary[i] = _byteswap_ulong(SPUBinary[i]);
 	}
 
-	cout << hex << uppercase;
-	copy( SPUBinary.cbegin(), SPUBinary.cend(), ostream_iterator<uint32_t>( cout, "\n" ) );
+	auto BBlocks = spu::BuildInitialBlocks( SPUBinary );
+
+
+	/*cout << hex << uppercase;
+	copy( SPUBinary.cbegin(), SPUBinary.cend(), ostream_iterator<uint32_t>( cout, "\n" ) );*/
 
 	return 0;
 
