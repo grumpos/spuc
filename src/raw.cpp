@@ -76,7 +76,17 @@ void*	begin(memmap_t* rm)
 	return  rm->begin_; 
 }
 
+const void*	begin(const memmap_t* rm) 
+{ 
+	return  rm->begin_; 
+}
+
 void*	end(memmap_t* rm) 
+{ 
+	return  rm->end_; 
+}
+
+const void*	end(const memmap_t* rm) 
 { 
 	return  rm->end_; 
 }

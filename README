@@ -1,3 +1,31 @@
 For now it's an x86 impementation of the SPU intrinsics, mainly as a practice with SSE.
 
 It was a basic SPU interpreter before, but that got dumped. Still lots of old junk left to be cleaned up.
+
+
+Projects
+- Turn SPU ELF file into compilable cpp file
+- Implement SPU intrinsics
+
+
+SPU steps:
+
+- Load binary from ELF file
+	- Load whole image into memory
+	- Load executable part separately
+
+- Preprocess executable
+	- Find entry point of statically called functions
+	- Isolate and remove non-executable part at the end
+	
+- Build basic blocks
+	- Between entry points
+
+
+SPU optimizations:
+
+- Turn pseudeo-assignments ( adding 0, oring 0, etc. ) into normal assignments
+
+- Turn pseudo-setzeros ( fsmbi( 0 ), etc. ) into direct setzeros
+
+- Remove stack instructions ( almost everything that uses GPR1 )
