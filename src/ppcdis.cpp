@@ -66,28 +66,28 @@ const char* ppc_decode_mnem( uint32_t i )
 	const auto ilist_begin	= db_ppc_instr_info;
 	const auto ilist_end	= ilist_begin + _countof(db_ppc_instr_info);
 
-	auto op_match = std::find_if( ilist_begin, ilist_end, 
+	auto MatchByOP = std::find_if( ilist_begin, ilist_end, 
 		[=]( const ppc_instr_info& ii ) -> bool
 	{
 		return ii.op == instr._I.OPCD;
 	} );	
 
-	if ( op_match != ilist_end )
+	if ( MatchByOP != ilist_end )
 	{
-		if ( op_match->xop == (uint16_t)-1 )
+		if ( MatchByOP->xop == (uint16_t)-1 )
 		{
-			if ( IFORM_D == op_match->iform )
+			if ( IFORM_D == MatchByOP->iform )
 			{
 				static char buf[256];
-				sprintf_s( buf, "%s\t$%d, $%d, %%%d", op_match->mnemonic, instr._D.RT,  instr._D.RA, instr._D.D );
+				sprintf_s( buf, "%s\t$%d, $%d, %%%d", MatchByOP->mnemonic, instr._D.RT,  instr._D.RA, instr._D.D );
 				return buf;
 			}
 
-			return op_match->mnemonic;
+			return MatchByOP->mnemonic;
 		}
 		else
 		{
-			auto xop_match = std::find_if( op_match, ilist_end, 
+			auto MatchByXOP = std::find_if( MatchByOP, ilist_end, 
 				[=]( const ppc_instr_info& ii ) -> bool
 			{
 				switch ( ii.iform )
@@ -106,9 +106,9 @@ const char* ppc_decode_mnem( uint32_t i )
 				}
 			} );
 
-			if ( xop_match != ilist_end )
+			if ( MatchByXOP != ilist_end )
 			{
-				return xop_match->mnemonic;
+				return MatchByXOP->mnemonic;
 			}	
 		}		
 	}

@@ -84,29 +84,26 @@ namespace elf
 	}
 
 	template<class ELFTraits>
-	struct HeaderByteswapperHelper
+	void HeaderByteswapperHelper( void* ELF )
 	{
 		typedef typename ELFTraits::header_type		header_type;
 		typedef typename ELFTraits::pheader_type	pheader_type;
 		typedef typename ELFTraits::sheader_type	sheader_type;
 		typedef typename ELFTraits::symbol_type		symbol_type;
 
-		HeaderByteswapperHelper( void* ELF )
-		{
-			header_type* h = (header_type*)ELF;
+		header_type* h = (header_type*)ELF;
 
-			ReverseBytesInRange( h, ELFTraits::header_layout );
+		ReverseBytesInRange( h, ELFTraits::header_layout );
 
-			pheader_type* ph_b = (pheader_type*)((const uint8_t*)ELF + h->e_phoff);
-			pheader_type* ph_e = ph_b + h->e_phnum;
+		pheader_type* ph_b = (pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+		pheader_type* ph_e = ph_b + h->e_phnum;
 
-			std::for_each( ph_b, ph_e, ByteSwapHelper<pheader_type>(ELFTraits::pheader_layout) );
+		std::for_each( ph_b, ph_e, ByteSwapHelper<pheader_type>(ELFTraits::pheader_layout) );
 
-			sheader_type* sh_b = (sheader_type*)((const uint8_t*)ELF + h->e_shoff);
-			sheader_type* sh_e = sh_b + h->e_shnum;
+		sheader_type* sh_b = (sheader_type*)((const uint8_t*)ELF + h->e_shoff);
+		sheader_type* sh_e = sh_b + h->e_shnum;
 
-			std::for_each( sh_b, sh_e, ByteSwapHelper<sheader_type>(ELFTraits::sheader_layout) );	
-		}
+		std::for_each( sh_b, sh_e, ByteSwapHelper<sheader_type>(ELFTraits::sheader_layout) );
 	};
 
 	void HeadersToSystemEndian( void* ELF )
@@ -116,11 +113,11 @@ namespace elf
 
 		if ( ELFCLASS32 == ((const uint8_t*)ELF)[EI_CLASS] )
 		{
-			HeaderByteswapperHelper<_32_traits_t> t( ELF );
+			HeaderByteswapperHelper<_32_traits_t>( ELF );
 		}
 		else if ( ELFCLASS64 == ((const uint8_t*)ELF)[EI_CLASS] )
 		{
-			HeaderByteswapperHelper<_64_traits_t> t( ELF );
+			HeaderByteswapperHelper<_64_traits_t>( ELF );
 		}
 	}
 

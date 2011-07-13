@@ -164,61 +164,8 @@
 //	return result;
 //}
 //
-//void spuSwitchEndianness( spu_program_t* program )
-//{
-//	std::transform( program->Binary.cbegin(), program->Binary.cend(), program->Binary.begin(),
-//		[](uint32_t off)->uint32_t
-//	{
-//		//auto tmp = off;
-//		//ReverseBytesInRange(&tmp, "\4");
-//		return _byteswap_ulong(off);
-//	});
-//}
-//
-//void spuSwitchEndianness( spu_data_t* /*data*/ )
-//{
-//	/*std::transform( data->data.cbegin(), data->data.cend(), data->data.begin(),
-//		[](__m128 dat)->__m128
-//	{
-//		auto tmp = dat;
-//		ReverseBytesInRange(&tmp, "\x10");
-//		return tmp;
-//	});*/
-//}
-//
-//void spuGatherProgramHeuristics( spu_info_t* info, const spu_program_t* program )
-//{
-//	uint32_t i = 0;
-//	std::for_each( program->Binary.cbegin(), program->Binary.cend(),
-//		[info, &i](uint32_t code)
-//	{		
-//		info->heuristics[spu_decode_op_mnemonic(code)].push_back(i++);
-//	});
-//
-//	info->functionSymbols[(program->EntryPoint - program->VirtualBaseAddress) / 4] = "main";
-//}
 //
 //
-//std::vector<size_t> spuFindSPUOffsetsInELFFile( const string& rawFile )
-//{
-//	const uint8_t ELF_SPU_ARCH_ID = 23;
-//
-//	std::vector<size_t> ELFOffsets;
-//
-//	for ( size_t off = 0; off != string::npos; off = rawFile.find(ELFMAG, off) )
-//	{
-//		const Elf32_Ehdr* eh = (Elf32_Ehdr*)&rawFile[off];
-//
-//		if ( ELF_SPU_ARCH_ID == ((uint8_t*)&eh->e_machine)[1] )
-//		{
-//			ELFOffsets.push_back( off );
-//		}
-//
-//		off += sizeof(Elf32_Ehdr);		
-//	}
-//
-//	return ELFOffsets;
-//}
 //
 //	
 //template<class Pred>

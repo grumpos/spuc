@@ -12,7 +12,7 @@
 //
 //#include "spu_emu.h"
 //#include "spu_unittest.h"
-//
+////
 //#include "spu_internals_x86.h"
 
 //uint32_t spu_assemble( const std::string& istr_text_raw );
@@ -390,6 +390,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	}	
 
 	vector<uint32_t> SPUBinary;
+	size_t EntryIndex = 0;
 	{
 		uint8_t* SPU0 = (uint8_t*)ELFFile.data() + SPUELFOffsets[0];
 
@@ -399,15 +400,22 @@ int main( int /*argc*/, char** /*argv*/ )
 
 		for ( size_t i = 0; i != SPUBinary.size(); ++i )
 			SPUBinary[i] = _byteswap_ulong(SPUBinary[i]);
+
+		EntryIndex = elf::EntryPointIndex( SPU0 );
 	}
 
-	auto BBlocks = spu::BuildInitialBlocks( SPUBinary );
+	spu::op_distrib_t Distrib;
+	{
+		Distrib = spu::GatherOPDistribution( SPUBinary );
+	}
+
+	auto BBlocks = spu::BuildInitialBlocks( SPUBinary, Distrib, EntryIndex );
 
 
 	/*cout << hex << uppercase;
 	copy( SPUBinary.cbegin(), SPUBinary.cend(), ostream_iterator<uint32_t>( cout, "\n" ) );*/
 
-	return 0;
+	//return 0;
 
 
 	/*__SPU_TEST_RR( 
@@ -697,7 +705,7 @@ fout << "DEFINST( \"" << mnem.substr( 0, mnem.find('[')) << "\",\t IFORM_"
 	//	}
 	//}
 
-	//return 0;
+	return 0;
 }
 
 //void ClearScreen()
