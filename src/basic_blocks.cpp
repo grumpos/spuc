@@ -22,6 +22,22 @@ namespace spu
 
 	typedef pair<size_t, size_t> range_t;
 
+	struct CodeBlock
+	{
+		vector<string> LOC;
+	};
+
+	struct CFlowNode
+	{
+		CFlowNode* Parent;
+		CFlowNode* Branch;
+		CFlowNode* Follow;
+
+		CodeBlock Block;
+
+		string BROP;
+	};
+
 	void DumpLOC( const vector<string>& Binary )
 	{
 		for_each( Binary.cbegin(), Binary.cend(),
@@ -31,6 +47,13 @@ namespace spu
 		});
 
 		cout << endl;
+	}
+
+	bool IsNOP(uint32_t op)
+	{
+		string mnem = spu_decode_op_mnemonic( op );
+
+		return "nop" == mnem || "lnop" == mnem;
 	}
 
 	bool IsBranch(uint32_t op)
@@ -62,22 +85,7 @@ namespace spu
 
 		return IsBranch;
 	};
-
-	bool IsFnCall(uint32_t op)
-	{
-		string mnem = spu_decode_op_mnemonic( op );
-
-		const string BranchOPs[] =
-		{
-			"br", "brsl", "bra", "brasl", "brz", "brnz", "brhz", "brhnz",
-			"bi", "bisl", "bisled", "iret", "biz", "binz", "bihz", "bihnz"
-		};
-
-		const bool IsBranch = (BranchOPs + _countof(BranchOPs)) != find( BranchOPs, BranchOPs + _countof(BranchOPs), mnem );
-
-		return IsBranch;
-	}
-
+	
 	bool IsScopedBrach(uint32_t op)
 	{		
 		string mnem = spu_decode_op_mnemonic( op );
@@ -90,45 +98,61 @@ namespace spu
 		const bool IsBranch = (BranchOPs + _countof(BranchOPs)) != find( BranchOPs, BranchOPs + _countof(BranchOPs), mnem );
 
 		return IsBranch;
-	};
+	}
 
 	bool IsSTOP(uint32_t op)
 	{
 		string mnem = spu_decode_op_mnemonic( op );
 
 		return "stop" == mnem;
-	};
+	}
+
+	bool IsFnCall(uint32_t op)
+	{
+		string mnem = spu_decode_op_mnemonic( op );
+
+		return "brsl" == mnem;
+	}
+
+	bool IsReturn(uint32_t op)
+	{
+		string mnem = spu_decode_op_mnemonic(op);
+
+		const string BranchOPs[] =
+		{
+			"bi", "biz", "binz", "bihz", "bihnz",
+		};
+
+		const bool IsIndirectBranch = (BranchOPs + _countof(BranchOPs)) != find( BranchOPs, BranchOPs + _countof(BranchOPs), mnem );
+
+		SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(op);
+
+		return IsIndirectBranch && 0 == OPComponents.RA;
+	}
+
+	bool IsJump(uint32_t op)
+	{
+		string mnem = spu_decode_op_mnemonic( op );
+
+		return "br" == mnem;
+	}
 
 	bool IsCFlowOP(uint32_t op)
 	{
-		return IsBranch(op) || IsSTOP(op);
-	};
+		return IsReturn(op) || IsSTOP(op) || IsFnCall(op) || IsJump(op);
+	}	
 
-	
-
-	struct CodeBlock
-	{
-		vector<string> LOC;
-	};
-
-	struct CFlowNode
-	{
-		CFlowNode* Parent;
-		CFlowNode* Branch;
-		CFlowNode* Follow;
-
-		CodeBlock Block;
-
-		string BROP;
-	};
+	static set<size_t> Visited;
+	static map<size_t, size_t> FnBnd;
 
 	CFlowNode* CFlowBuilder( const vector<uint32_t>& Binary, size_t begin, size_t end )
 	{
-		/*static size_t counter = 11;
+		/*static size_t counter = 5;
 		if ( 0 == --counter )
 		{
 			return nullptr; 
 		}*/
+		
 
 		assert( begin < Binary.size() );
 		assert( end <= Binary.size() );
@@ -140,18 +164,55 @@ namespace spu
 
 		CodeBlock NewBlock;
 
-		while ( begin != end && !IsAnyBranch(Binary[begin]) && !IsSTOP(Binary[begin]) )
+		/*if (  begin != end && !IsCFlowOP(Binary[begin]) )
 		{
 			NewBlock.LOC.push_back( spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin++], 0 ) );
-		}		
+		}*/
+		
 
-		const string mnem = spu_decode_op_mnemonic( Binary[begin] );
+		while ( begin != end && !IsCFlowOP(Binary[begin]) )
+		{
+			NewBlock.LOC.push_back( spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin++], 0 ) );
+			//++begin;
+		}
 
-		//DumpLOC( NewBlock.LOC );
+		if ( IsFnCall(Binary[begin]) )
+		{
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
 
-		//cout << spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 ) << endl << "------------------" << endl;
+			const size_t Target = begin + (int16_t)OPComponents.IMM;
 
-		if ( "brsl" == mnem )
+			/*if ( Visited.end() != find(Visited.begin(), Visited.end(), Target ) )
+			{
+				CFlowNode* Node = new CFlowNode;
+				Node->Parent = nullptr;
+				Node->Block = NewBlock;
+				Node->BROP = "CYCLE";
+				Node->Branch = nullptr;
+				Node->Follow = nullptr;
+
+				return Node;
+			}*/
+
+			//Visited.insert(Target);
+
+			CFlowNode* Node = new CFlowNode;
+			Node->Parent = nullptr;
+			Node->Block = NewBlock;
+			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
+			if ( Target < begin )
+			{
+				Node->Branch = CFlowBuilder( Binary, Target, begin );
+			}
+			else
+			{
+				Node->Branch = CFlowBuilder( Binary, Target, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
+			}
+			Node->Follow = CFlowBuilder( Binary, begin + 1, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
+
+			return Node;
+		}
+		else if ( IsJump(Binary[begin]) )
 		{
 			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
 
@@ -161,68 +222,22 @@ namespace spu
 			Node->Parent = nullptr;
 			Node->Block = NewBlock;
 			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-			Node->Branch = nullptr;//CFlowBuilder( Binary, Target, end );
-			Node->Follow = CFlowBuilder( Binary, begin + 1, end );
-
-			return Node;
-		}
-		else if ( "stop" == mnem, "stopd" == mnem )
-		{
-			CFlowNode* Node = new CFlowNode;
-			Node->Parent = nullptr;
-			Node->Block = NewBlock;
-			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-			Node->Branch = nullptr;
+			if ( Target < begin )
+			{
+				Node->Branch = CFlowBuilder( Binary, Target, begin );
+			}
+			else
+			{
+				Node->Branch = CFlowBuilder( Binary, Target, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
+			}
 			Node->Follow = nullptr;
 
 			return Node;
 		}
-
-		return nullptr;
-
-		if ( "brz" == mnem, "brnz" == mnem, "brhz" == mnem, "brhnz" == mnem )
-		{
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
-
-			const size_t Target = begin + (int16_t)OPComponents.IMM;
-
-			CFlowNode* Node = new CFlowNode;
-
-			Node->Block = NewBlock;
-			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-			Node->Branch = CFlowBuilder( Binary, begin + 1, Target );
-			Node->Follow = CFlowBuilder( Binary, Target, end );
-
-			return Node;
-		}
-		else if ( "brsl" == mnem )
-		{
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
-
-			const size_t Target = begin + (int16_t)OPComponents.IMM;
-
-			CFlowNode* Node = new CFlowNode;
-
-			Node->Block = NewBlock;
-			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-			Node->Branch = CFlowBuilder( Binary, Target, end );
-			Node->Follow = CFlowBuilder( Binary, begin + 1, end );
-
-			return Node;
-		}
-		else if ( "bi" == mnem )
-		{
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
-
-			if ( 0 == OPComponents.RT )
-			{
-				return nullptr;
-			}
-		}
-		else if ( "stop" == mnem, "stopd" == mnem )
+		else if ( IsReturn(Binary[begin]) || IsSTOP(Binary[begin]) )
 		{
 			CFlowNode* Node = new CFlowNode;
-
+			Node->Parent = nullptr;
 			Node->Block = NewBlock;
 			Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
 			Node->Branch = nullptr;
@@ -233,6 +248,8 @@ namespace spu
 
 		return nullptr;
 	}
+
+	ofstream off("calltree.txt");
 
 	void WalkCFlowTree( CFlowNode* Root, size_t Depth )
 	{
@@ -241,16 +258,17 @@ namespace spu
 			return;
 		}
 
-		const string Indent( Depth, ' ' );
+		const string Indent( Depth*2, ' ' );
 
 		for ( int i = 0; i != Root->Block.LOC.size() ; ++i )
 		{
-			cout << Indent << Root->Block.LOC[i] << endl;
+			off << Indent << Root->Block.LOC[i] << endl;
 		}
 
 		//copy( Root->Block.LOC.cbegin(), Root->Block.LOC.cend(), ostream_iterator<string>(cout, "\n" ) );
-		cout << Indent << Root->BROP << endl;
-		cout << Indent << "----------" << endl;		
+		off << Indent << Root->BROP << endl;
+		//system("color 0F");
+		//cout << Indent << "----------" << endl;
 
 		WalkCFlowTree( Root->Branch, Depth + 1 );
 		WalkCFlowTree( Root->Follow, Depth );
@@ -258,31 +276,30 @@ namespace spu
 
 	vector<basic_block_t> BuildInitialBlocks( const vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t EntryIndex )
 	{	
-		CFlowNode* Root = CFlowBuilder( Binary, EntryIndex, Binary.size() );
-
-		WalkCFlowTree( Root, 0 );
+		
 		
 
 
 		set<size_t> StaticCallTargets;
+		map<size_t, size_t> CT;
 		{
 			const auto& FunCallInstr = Distrib["brsl"];
 
 			transform( 
 				FunCallInstr.cbegin(), FunCallInstr.cend(), 
 				std::inserter(StaticCallTargets, StaticCallTargets.end()),
-				[Binary](size_t IOffset)->size_t
+				[Binary, &CT](size_t IOffset)->size_t
 			{
 				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
+
+				++CT[IOffset + (int16_t)OPComponents.IMM];
 
 				return IOffset + (int16_t)OPComponents.IMM;
 			});
 
 			// main()
 			StaticCallTargets.insert( EntryIndex );
-		}
-
-		
+		}		
 
 		vector<range_t> FunctionBoundaries;
 		{
@@ -291,11 +308,13 @@ namespace spu
 				std::back_inserter(FunctionBoundaries),
 				[](size_t Offset, size_t NextOffset )->range_t
 			{
+				FnBnd[Offset] = NextOffset;
 				return make_pair( Offset, NextOffset );
 			});
 
 			// add [last entry, EOF[
 			FunctionBoundaries.push_back( make_pair( FunctionBoundaries.back().second, Binary.size() ) );
+			FnBnd[FunctionBoundaries.back().second] = Binary.size();
 		}
 
 		set<size_t> JumpTargets;
@@ -378,10 +397,32 @@ namespace spu
 				}
 			}
 
-			// test dump
 			{
-				
+				for ( size_t j = 0; j < FunctionBoundaries.size(); ++j )
+				{
+					for ( size_t i = FunctionBoundaries[j].first; i < FunctionBoundaries[j].second; ++i )
+					{
+						if ( 0 == ScopeLevel[i] && IsReturn(Binary[i]) )
+						{
+							++i;
+
+							while ( IsNOP(Binary[i]) )
+							{
+								++i;
+							}
+
+							if ( i == FunctionBoundaries[j].second )
+							{
+
+							}
+						}
+					}
+				}				
 			}
+
+			CFlowNode* Root = CFlowBuilder( Binary, EntryIndex, Binary.size() );
+
+			WalkCFlowTree( Root, 0 );
 
 		}
 		
