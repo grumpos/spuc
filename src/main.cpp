@@ -357,13 +357,13 @@ void testXMM( FN1_t fn1, FN2_t fn2 )
 #include <iterator>
 #include <iomanip>
 #include <intrin.h>
+#include <fstream>
 #include "raw.h"
 #include "elf_helper.h"
 #include "basic_blocks.h"
 
 
 using namespace std;
-
 
 int main( int /*argc*/, char** /*argv*/ )
 {
@@ -393,6 +393,11 @@ int main( int /*argc*/, char** /*argv*/ )
 	size_t EntryIndex = 0;
 	{
 		uint8_t* SPU0 = (uint8_t*)ELFFile.data() + SPUELFOffsets[0];
+
+		/*std::ofstream off ("spu.DumpLOC", ios::binary | ios::out);
+		off.write( (const char*)SPU0, SPUELFOffsets[1] - SPUELFOffsets[0]);
+		off.close();*/
+
 
 		elf::HeadersToSystemEndian( SPU0 );
 

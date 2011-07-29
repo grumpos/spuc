@@ -237,6 +237,10 @@ namespace elf
 
 	size_t EntryPointIndex( const void* ELF );
 
+	size_t Entry( const void* ELF );
+
+	size_t BinaryBaseAddress( const void* ELF );
+
 	namespace spu
 	{
 		vector<uint32_t> LoadExecutable( const void* ELF );

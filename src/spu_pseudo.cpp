@@ -90,11 +90,11 @@ static const mn_intr_pair_t imaps_array[] =
 	mn_intr_pair_t("gb", "$RT$ = si_gb($RA$)"),
 	mn_intr_pair_t("avgb", "$RT$ = si_avgb($RA$,$RB$)"),
 	mn_intr_pair_t("absdb", "$RT$ = si_absdb($RA$,$RB$)"),
-	mn_intr_pair_t("sumb", "$RT$ = si_sumb($RA$,$RB$)"),
+	mn_intr_pair_t("sumb", "$RT$ = si_sumb($RA$,$RB$)"),*/
 	mn_intr_pair_t("xsbh", "$RT$ = si_xsbh($RA$)"),
 	mn_intr_pair_t("xshw", "$RT$ = si_xshw($RA$)"),
 	mn_intr_pair_t("xswd", "$RT$ = si_xswd($RA$)"),
-	mn_intr_pair_t("and", "$RT$ = si_and($RA$,$RB$)"),
+	/*mn_intr_pair_t("and", "$RT$ = si_and($RA$,$RB$)"),
 	mn_intr_pair_t("andc", "$RT$ = si_andc($RA$,$RB$)"),
 	mn_intr_pair_t("andbi", "$RT$ = si_andbi($RA$,$IMM$)"),
 	mn_intr_pair_t("andhi", "$RT$ = si_andhi($RA$,$IMM$)"),
@@ -242,23 +242,34 @@ static const mn_intr_pair_t imaps_array[] =
 
 	// Branch
 	mn_intr_pair_t("brhnz", "BRANCH16NZ($RT$,$IMM$)"),
-	mn_intr_pair_t("brhz", "BRANCH16Z($RT$,$IMM$)"),
-	mn_intr_pair_t("brnz", "BRANCH32NZ($RT$,$IMM$)"),
-	mn_intr_pair_t("brz", "BRANCH32Z($RT$,$IMM$)"),
+	mn_intr_pair_t("brhz",	"BRANCH16Z($RT$,$IMM$)"),
+	mn_intr_pair_t("brnz",	"BRANCH32NZ($RT$,$IMM$)"),
+	mn_intr_pair_t("brz",	"BRANCH32Z($RT$,$IMM$)"),
+
 	mn_intr_pair_t("bihnz", "BRANCH16NZ($RT$,$RA$)"),
-	mn_intr_pair_t("bihz", "BRANCH16Z($RT$,$RA$)"),
-	mn_intr_pair_t("binz", "BRANCH32NZ($RT$,$RA$)"),
-	mn_intr_pair_t("biz", "BRANCH32Z($RT$,$RA$)"),	
-	mn_intr_pair_t("br", "JUMP_REL($IMM$)"),
-	mn_intr_pair_t("bra", "JUMP_ABS($IMM$)"),
-	mn_intr_pair_t("brsl", "CALL_REL($IMM$)//$RT$"),
+	mn_intr_pair_t("bihz",	"BRANCH16Z($RT$,$RA$)"),
+	mn_intr_pair_t("binz",	"BRANCH32NZ($RT$,$RA$)"),
+	mn_intr_pair_t("biz",	"BRANCH32Z($RT$,$RA$)"),	
+
+	mn_intr_pair_t("br",	"JUMP_REL($IMM$)"),
+	mn_intr_pair_t("bra",	"JUMP_ABS($IMM$)"),
+	mn_intr_pair_t("brsl",	"CALL_REL($IMM$)//$RT$"),
 	mn_intr_pair_t("brasl", "CALL_ABS($IMM$)//$RT$"),
-	mn_intr_pair_t("bi", "return//$RA$"),
-	mn_intr_pair_t("iret", "// IRET"),
-	mn_intr_pair_t("bisled", "// BISLED"),
-	mn_intr_pair_t("bisl", "CALL_ABS($RA$)//$RT$"),
+
+	mn_intr_pair_t("bi",	"return//$RA$"),
+	mn_intr_pair_t("iret",	"// IRET"),
+	mn_intr_pair_t("bisled","// BISLED"),
+	mn_intr_pair_t("bisl",	"CALL_ABS($RA$)//$RT$"),
 };
 
+#define IF_16_NZ_IMM( gpr, imm ) if ( 0 != si_to_short((gpr)) )
+#define IF_16_Z_IMM( gpr, imm )  if ( 0 == si_to_short((gpr)) )
+#define IF_32_NZ_IMM( gpr, imm ) if ( 0 != si_to_int((gpr)) )
+#define IF_32_Z_IMM( gpr, imm )  if ( 0 == si_to_int((gpr)) )
+#define WHILE_16_NZ_IMM( gpr, imm ) if ( 0 != si_to_short((gpr)) )
+#define WHILE_16_Z_IMM( gpr, imm )  if ( 0 == si_to_short((gpr)) )
+#define WHILE_32_NZ_IMM( gpr, imm ) if ( 0 != si_to_int((gpr)) )
+#define WHILE_32_Z_IMM( gpr, imm )  if ( 0 == si_to_int((gpr)) )
 
 static const std::map<std::string, std::string> CustomIntrins( imaps_array, imaps_array + _countof(imaps_array) );
 

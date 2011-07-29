@@ -29,3 +29,22 @@ SPU optimizations:
 - Turn pseudo-setzeros ( FSMBI( 0 ), etc. ) into direct setzeros
 
 - Remove stack instructions ( almost everything that uses GPR1 )
+
+ASSUMPTIONS:
+
+* IP here is instr_addr / 4
+* LNOP's IP is always odd
+* NOP's IP is always even
+* returns (bi $0) with and even IP are always followed by LNOP
+
+FUNCTION ENDINGS:
+
+* must be an unconditional branch instruction 
+* must be at SCOPE_DEPTH 0
+* right before the next function entry
+* right before EOF ( should close earlier than that anyway )
+* return (bi $0; bi** $*, $0)
+* negative static jump (br -***) into function body
+* negative static jump (br -***) before the first intruction of the function
+* positive static jump (br ***) 
+* LNOP if IP at return is even

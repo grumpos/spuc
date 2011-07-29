@@ -59,7 +59,7 @@ namespace elf
 
 		vector<size_t> ELFOffsets;
 
-		while ( 1 )
+		for ( ;; )
 		{
 			while ( b != e && *b != ELFMAG0 )
 				++b;
@@ -121,7 +121,17 @@ namespace elf
 		}
 	}
 
-	size_t EntryPointIndex( const void* ELF )
+	size_t Entry( const void* ELF )
+	{
+		assert( ELF );
+		assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
+
+		_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;
+
+		return h->e_entry;
+	}
+
+	size_t BinaryBaseAddress( const void* ELF )
 	{
 		assert( ELF );
 		assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
@@ -130,7 +140,12 @@ namespace elf
 
 		_32_traits_t::pheader_type* p = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
 
-		return (h->e_entry - p->p_vaddr) / 4;
+		return p->p_vaddr;
+	}
+
+	size_t EntryPointIndex( const void* ELF )
+	{
+		return (Entry(ELF) - BinaryBaseAddress(ELF)) / 4;
 	}
 
 	namespace spu
