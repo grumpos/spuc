@@ -1,6 +1,6 @@
 #ifndef __ELF_HELPER_H__
 #define __ELF_HELPER_H__
-//
+
 //#include "elf.h"
 //#include "raw.h"
 //#include <string>
@@ -239,11 +239,15 @@ namespace elf
 
 	size_t Entry( const void* ELF );
 
-	size_t BinaryBaseAddress( const void* ELF );
+	size_t VirtualBaseAddr( const void* ELF );
+
+	vector<uint32_t> PPUExecutables( void* ELF );
 
 	namespace spu
 	{
 		vector<uint32_t> LoadExecutable( const void* ELF );
+
+		void LoadImage( uint8_t* LS, const void* ELF );
 	}
 }
 

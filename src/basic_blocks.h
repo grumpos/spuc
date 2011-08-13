@@ -22,8 +22,8 @@ namespace spu
 		std::vector<basic_block_t> blocks;
 	};
 
-
-	vector<basic_block_t> BuildInitialBlocks( const vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t EntryIndex );
+	vector<pair<size_t, size_t>> BuildInitialBlocks( 
+		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex );
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary );
 }

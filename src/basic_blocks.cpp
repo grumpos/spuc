@@ -11,6 +11,7 @@
 #include <iostream>
 #include <functional>
 #include <deque>
+#include <sstream>
 
 #include "spu_idb.h"
 #include "elf_helper.h"
@@ -279,14 +280,27 @@ namespace spu
 		return Container.end() != find(Container.begin(), Container.end(), Element);
 	}
 
-	vector<basic_block_t> BuildInitialBlocks( const vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t EntryIndex )
+	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
+
+	vector<pair<size_t, size_t>> BuildInitialBlocks( 
+		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex )
 	{	
 		set<size_t> FnEntryByStaticCall;
 		{
-			const auto& FunCallInstr = Distrib["brsl"];
+			const auto& brsl = Distrib["brsl"];
 
-			transform( 
-				FunCallInstr.cbegin(), FunCallInstr.cend(), 
+			transform( brsl.cbegin(), brsl.cend(), 
+				std::inserter(FnEntryByStaticCall, FnEntryByStaticCall.end()),
+				[Binary](size_t IOffset)->size_t
+			{
+				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
+
+				return IOffset + OPComponents.IMM;
+			});
+
+			const auto& brasl = Distrib["brasl"];
+
+			transform( brasl.cbegin(), brasl.cend(), 
 				std::inserter(FnEntryByStaticCall, FnEntryByStaticCall.end()),
 				[Binary](size_t IOffset)->size_t
 			{
@@ -331,6 +345,54 @@ namespace spu
 			}
 		}
 
+		size_t MainEnd = 0;
+		{
+			auto i = EntryIndex;
+
+			while ( string("stop") != spu_decode_op_mnemonic(Binary[i]) )
+			 ++i;
+
+			MainEnd = ++i;
+		}
+
+		/*set<size_t> FnEntryAfterStop;
+		{
+			set<size_t> Stops;
+			{
+				auto& stop = Distrib["stop"];
+
+				for_each( 
+					stop.cbegin(), stop.cend(),
+					[&Stops, &ScopeDepth, &Binary]( size_t IOffset )
+				{
+					if ( 0 == ScopeDepth[IOffset] && IsSTOP( Binary[IOffset]) )
+					{
+						Stops.insert(IOffset);
+					}
+				});
+				auto& stopd = Distrib["stopd"];
+
+				for_each( 
+					stopd.cbegin(), stopd.cend(),
+					[&Stops, &ScopeDepth, &Binary]( size_t IOffset )
+				{
+					if ( 0 == ScopeDepth[IOffset] && IsSTOP( Binary[IOffset]) )
+					{
+						Stops.insert(IOffset);
+					}
+				});
+			}
+
+			transform( 
+				Stops.cbegin(), Stops.cend(),
+				std::inserter(FnEntryAfterStop, FnEntryAfterStop.end()),
+				[]( size_t IOffset ) -> size_t
+			{
+				const bool EvenIP = 0 == (IOffset % 2);
+				return IOffset + (EvenIP ? 2 : 1);
+			});
+		}*/
+
 		set<size_t> FnEntryAfterReturn;
 		{
 			set<size_t> Returns;
@@ -341,7 +403,7 @@ namespace spu
 					bi.cbegin(), bi.cend(),
 					[&Returns, &ScopeDepth, &Binary]( size_t IOffset )
 				{
-					if ( 0 == ScopeDepth[IOffset] && IsReturn(Binary[IOffset]) )
+					if ( 0 == ScopeDepth[IOffset] && IsReturn( Binary[IOffset]) )
 					{
 						Returns.insert(IOffset);
 					}
@@ -408,35 +470,36 @@ namespace spu
 			}
 		}		
 
+		vector<range_t> FnRanges;
 		{			
 			auto FnEntries = FnEntryByStaticCall;
 			FnEntries.insert( FnEntryAfterReturn.begin(), FnEntryAfterReturn.end() );
 			FnEntries.insert( FnEntryAfterJumps.begin(), FnEntryAfterJumps.end() );
+			FnEntries.insert(MainEnd);
+			//FnEntries.insert( FnEntryAfterStop.begin(), FnEntryAfterStop.end() );
 			deque<size_t> Entries(FnEntries.begin(), FnEntries.end());
 
-			ofstream off("spu_code_0.intr");
-			ofstream ioff("spu_code_0.info");
+			//ofstream off("spu_code_0.intr");
+			//ofstream ioff("spu_code_0.info");
 
-			for ( size_t i = 1; i < Binary.size(); ++i ) // start from 1, notepad++ indexes lines from 1
-			{
-				ioff << hex << (0x3000+(i*4)) << endl;
+			//for ( size_t i = 1; i < Binary.size(); ++i ) // start from 1, notepad++ indexes lines from 1
+			//{
+			//	ioff << hex << (0x3000+(i*4)) << endl;
 
-				/*if ( 0 != ScopeDepth[i] )
-				{
-					off << endl;
-					continue;
-				}*/
-				if ( !Entries.empty() && i == Entries.front() )
-				{
-					Entries.pop_front();
-					off << "\t\t" << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
-					continue;
-				}
+			//	/*if ( 0 != ScopeDepth[i] )
+			//	{
+			//		off << endl;
+			//		continue;
+			//	}*/
+			//	if ( !Entries.empty() && i == Entries.front() )
+			//	{
+			//		Entries.pop_front();
+			//		off << "\t\t" << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
+			//		continue;
+			//	}
 
-				off << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
-			}
-
-			vector<range_t> FnRanges;
+			//	off << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
+			//}			
 
 			transform(
 				FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
@@ -446,13 +509,74 @@ namespace spu
 				return make_pair( b, e );
 			});
 
-			//CFlowNode* Root = CFlowBuilder( Binary, EntryIndex, Binary.size() );
+			// turn jumps to function entries into brsl calls
+			{
+				auto& br = Distrib["br"];
 
-			//WalkCFlowTree( Root, 0 );
+				for ( size_t i = 0; i != br.size(); ++i )
+				{
+					const size_t IOffset = br[i];
 
+					const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
+
+					const size_t Jumptarget = IOffset + OPComponents.IMM;
+
+					if ( FnEntries.cend() != find(FnEntries.cbegin(), FnEntries.cend(), Jumptarget) )
+					{
+						SPU_INSTRUCTION SI;
+						SI.RI16.OP = 0x66;
+						SI.RI16.I16 = OPComponents.IMM;
+						SI.RI16.RT = 0;
+
+						Binary[IOffset] = SI.Instruction;
+					}
+				}
+			}
 		}
 
-		return vector<basic_block_t>();
+		
+
+		vector<uint8_t> FnArgCounts;
+		FnArgCounts.resize(FnRanges.size());
+
+		transform( FnRanges.cbegin(), FnRanges.cend(), FnArgCounts.begin(),
+			[Binary]( pair<size_t, size_t> FnRange )
+		{
+			return GetFnArgCount(Binary, FnRange);
+		});
+
+		return FnRanges;
+	}
+
+	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange )
+	{
+		uint8_t WrittenRegisters[128] = {0};
+		uint8_t ArgConut = 0;
+
+		for ( size_t i = FnRange.first; i != FnRange.second; ++i )
+		{
+			SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[i]);
+
+			if ( OPComponents.RA != 0xFF && OPComponents.RA > 2 )
+			{
+				if ( 0 == WrittenRegisters[OPComponents.RA] )
+					ArgConut = max<uint8_t>( OPComponents.RA - 2, ArgConut );
+			}
+			if ( OPComponents.RB != 0xFF && OPComponents.RB > 2 )
+			{
+				if ( 0 == WrittenRegisters[OPComponents.RB] )
+					ArgConut = max<uint8_t>( OPComponents.RB - 2, ArgConut );
+			}
+			if ( OPComponents.RC != 0xFF && OPComponents.RC > 2 )
+			{
+				if ( 0 == WrittenRegisters[OPComponents.RC] )
+					ArgConut = max<uint8_t>( OPComponents.RC - 2, ArgConut );
+			}
+			if ( OPComponents.RT != 0xFF )
+				WrittenRegisters[OPComponents.RT] = 1;
+		}
+
+		return ArgConut;
 	}
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )

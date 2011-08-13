@@ -30,16 +30,43 @@ std::string lexical_cast( T t )
 }
 
 template <class T>
+std::string lexical_cast_gpr( T t )
+{
+	std::ostringstream os;
+	os << std::setw(3) << std::setfill(' ');
+	os << t;
+	return os.str();
+}
+
+template <class T>
 std::string lexical_cast_hex( T t )
 {
 	std::ostringstream os;
-	os << "0x" << std::hex << std::setw(8) << std::setfill('0') << t << std::dec << "/*" << t << "*/";
+	//os << "0x" << std::hex << std::setw(8) << std::setfill('0') << t << std::dec << "/*" << t << "*/";
+	os << t << "/*0x" << std::hex << t << "*/";
+	return os.str();
+}
+
+template <class T>
+std::string lexical_cast_hex2( T t )
+{
+	std::ostringstream os;
+	os << "// 0x" << std::hex << t;
+	return os.str();
+}
+
+template <class T>
+std::string lexical_cast_hex_addr( T t )
+{
+	std::ostringstream os;
+	//os << "0x" << std::hex << std::setw(8) << std::setfill('0') << t << std::dec << "/*" << t << "*/";
+	os << std::hex << t;// << std::dec << "/*" << t << "*/";
 	return os.str();
 }
 
 typedef std::pair<std::string, std::string> mn_intr_pair_t;
 
-static const mn_intr_pair_t imaps_array[] = 
+static const mn_intr_pair_t IntrinsicTemplateTable[] = 
 {	
 	/*mn_intr_pair_t("cbd", "$RT$ = si_cbd($RA$,$IMM$)"),
 	mn_intr_pair_t("cbx", "$RT$ = si_cbx($RA$,$RB$)"),
@@ -58,9 +85,9 @@ static const mn_intr_pair_t imaps_array[] =
 	/*mn_intr_pair_t("ah", "$RT$ = si_ah($RA$,$RB$)"),
 	mn_intr_pair_t("ahi", "$RT$ = si_ahi($RA$,$IMM$)"),
 	mn_intr_pair_t("a", "$RT$ = si_a($RA$,$RB$)"),
-	mn_intr_pair_t("ai", "$RT$ = si_ai($RA$,$IMM$)"),
+	mn_intr_pair_t("ai", "$RT$ = si_ai($RA$,$IMM$)"),*/
 	mn_intr_pair_t("addx", "$RT$ = si_addx($RA$,$RB$,$RT$)"),
-	mn_intr_pair_t("cg", "$RT$ = si_cg($RA$,$RB$)"),
+	/*mn_intr_pair_t("cg", "$RT$ = si_cg($RA$,$RB$)"),
 	mn_intr_pair_t("cgx", "$RT$ = si_cgx($RA$,$RB$,$RT$)"),
 	mn_intr_pair_t("sfh", "$RT$ = si_sfh($RA$,$RB$)"),
 	mn_intr_pair_t("sfhi", "$RT$ = si_sfhi($IMM$,$RA$)"),
@@ -79,7 +106,7 @@ static const mn_intr_pair_t imaps_array[] =
 	mn_intr_pair_t("mpyhh", "$RT$ = si_mpyhh($RA$,$RB$)"),
 	mn_intr_pair_t("mpyhhu", "$RT$ = si_mpyhhu($RA$,$RB$)"),
 	mn_intr_pair_t("mpyhha", "$RT$ = si_mpyhha($RA$,$RB$,$RC$)"),
-	mn_intr_pair_t("mpyhhau", "$RT$ = si_mpyhhau($RA$,$RB$,$RC$)"),
+	mn_intr_pair_t("mpyhhau", "$RT$ = si_mpyhhau($RA$,$RB$,$RC$)"),*/
 	mn_intr_pair_t("clz", "$RT$ = si_clz($RA$)"),
 	mn_intr_pair_t("cntb", "$RT$ = si_cntb($RA$)"),
 	mn_intr_pair_t("fsmb", "$RT$ = si_fsmb($RA$)"),
@@ -88,7 +115,7 @@ static const mn_intr_pair_t imaps_array[] =
 	mn_intr_pair_t("gbb", "$RT$ = si_gbb($RA$)"),
 	mn_intr_pair_t("gbh", "$RT$ = si_gbh($RA$)"),
 	mn_intr_pair_t("gb", "$RT$ = si_gb($RA$)"),
-	mn_intr_pair_t("avgb", "$RT$ = si_avgb($RA$,$RB$)"),
+	/*mn_intr_pair_t("avgb", "$RT$ = si_avgb($RA$,$RB$)"),
 	mn_intr_pair_t("absdb", "$RT$ = si_absdb($RA$,$RB$)"),
 	mn_intr_pair_t("sumb", "$RT$ = si_sumb($RA$,$RB$)"),*/
 	mn_intr_pair_t("xsbh", "$RT$ = si_xsbh($RA$)"),
@@ -103,9 +130,9 @@ static const mn_intr_pair_t imaps_array[] =
 	mn_intr_pair_t("orc", "$RT$ = si_o$RC$($RA$,$RB$)"),
 	mn_intr_pair_t("orbi", "$RT$ = si_o$RB$i($RA$,$IMM$)"),
 	mn_intr_pair_t("orhi", "$RT$ = si_orhi($RA$,$IMM$)"),
-	mn_intr_pair_t("ori", "$RT$ = si_ori($RA$,$IMM$)"),
+	mn_intr_pair_t("ori", "$RT$ = si_ori($RA$,$IMM$)"),*/
 	mn_intr_pair_t("orx", "$RT$ = si_orx($RA$)"),
-	mn_intr_pair_t("xor", "$RT$ = si_xor($RA$,$RB$)"),
+	/*mn_intr_pair_t("xor", "$RT$ = si_xor($RA$,$RB$)"),
 	mn_intr_pair_t("xorbi", "$RT$ = si_xo$RB$i($RA$,$IMM$)"),
 	mn_intr_pair_t("xorhi", "$RT$ = si_xorhi($RA$,$IMM$)"),
 	mn_intr_pair_t("xori", "$RT$ = si_xori($RA$,$IMM$)"),
@@ -233,45 +260,41 @@ static const mn_intr_pair_t imaps_array[] =
 	// Memory
 	mn_intr_pair_t("lqd", "$RT$ = si_lqd($RA$,$IMM$)"),
 	mn_intr_pair_t("lqx", "$RT$ = si_lqx($RA$,$RB$)"),
-	mn_intr_pair_t("lqa", "$RT$ = si_lqa($IMM$)"),
-	mn_intr_pair_t("lqr", "$RT$ = si_lqr($ADDR_REL$)"),
+	mn_intr_pair_t("lqa", "$RT$ = si_lqa($WADDR_ABS$)"),
+	mn_intr_pair_t("lqr", "$RT$ = si_lqr($WADDR_REL$)"),
 	mn_intr_pair_t("stqd", "si_stqd($RT$,$RA$,$IMM$)"),
 	mn_intr_pair_t("stqx", "si_stqx($RT$,$RA$,$RB$)"),
-	mn_intr_pair_t("stqa", "si_stqa($RT$,$IMM$)"),
-	mn_intr_pair_t("stqr", "si_stqr($RT$,$ADDR_REL$)"),
+	mn_intr_pair_t("stqa", "si_stqa($RT$,$WADDR_ABS$)"),
+	mn_intr_pair_t("stqr", "si_stqr($RT$,$WADDR_REL$)"),
 
 	// Branch
-	mn_intr_pair_t("brhnz", "BRANCH16NZ($RT$,$IMM$)"),
-	mn_intr_pair_t("brhz",	"BRANCH16Z($RT$,$IMM$)"),
-	mn_intr_pair_t("brnz",	"BRANCH32NZ($RT$,$IMM$)"),
-	mn_intr_pair_t("brz",	"BRANCH32Z($RT$,$IMM$)"),
+	mn_intr_pair_t("brhnz", "_16_NZ_IMM($RT$,$LABEL$)"),
+	mn_intr_pair_t("brhz",	"_16_Z_IMM($RT$,$LABEL$)"),
+	mn_intr_pair_t("brnz",	"_32_NZ_IMM($RT$,$LABEL$)"),
+	mn_intr_pair_t("brz",	"_32_Z_IMM($RT$,$LABEL$)"),
 
-	mn_intr_pair_t("bihnz", "BRANCH16NZ($RT$,$RA$)"),
+	/*mn_intr_pair_t("bihnz", "BRANCH16NZ($RT$,$RA$)"),
 	mn_intr_pair_t("bihz",	"BRANCH16Z($RT$,$RA$)"),
 	mn_intr_pair_t("binz",	"BRANCH32NZ($RT$,$RA$)"),
-	mn_intr_pair_t("biz",	"BRANCH32Z($RT$,$RA$)"),	
+	mn_intr_pair_t("biz",	"BRANCH32Z($RT$,$RA$)"),*/	
 
-	mn_intr_pair_t("br",	"JUMP_REL($IMM$)"),
+	mn_intr_pair_t("bihnz", "RETURN_IF_16_NZ_IMM($RT$)"),
+	mn_intr_pair_t("bihz",	"RETURN_IF_16_Z_IMM($RT$)"),
+	mn_intr_pair_t("binz",	"RETURN_IF_32_NZ_IMM($RT$)"),
+	mn_intr_pair_t("biz",	"RETURN_IF_32_Z_IMM($RT$)"),
+
+	mn_intr_pair_t("br",	"goto loc_$LABEL$"),
 	mn_intr_pair_t("bra",	"JUMP_ABS($IMM$)"),
-	mn_intr_pair_t("brsl",	"CALL_REL($IMM$)//$RT$"),
-	mn_intr_pair_t("brasl", "CALL_ABS($IMM$)//$RT$"),
+	mn_intr_pair_t("brsl",	"$FN_ADDR$//$RT$"),
+	mn_intr_pair_t("brasl", "$FN_ADDR$//$RT$"),
 
-	mn_intr_pair_t("bi",	"return//$RA$"),
+	mn_intr_pair_t("bi",	"return;//$RA$"),
 	mn_intr_pair_t("iret",	"// IRET"),
 	mn_intr_pair_t("bisled","// BISLED"),
-	mn_intr_pair_t("bisl",	"CALL_ABS($RA$)//$RT$"),
+	mn_intr_pair_t("bisl",	"CALL_ABS($RA$)"),
 };
 
-#define IF_16_NZ_IMM( gpr, imm ) if ( 0 != si_to_short((gpr)) )
-#define IF_16_Z_IMM( gpr, imm )  if ( 0 == si_to_short((gpr)) )
-#define IF_32_NZ_IMM( gpr, imm ) if ( 0 != si_to_int((gpr)) )
-#define IF_32_Z_IMM( gpr, imm )  if ( 0 == si_to_int((gpr)) )
-#define WHILE_16_NZ_IMM( gpr, imm ) if ( 0 != si_to_short((gpr)) )
-#define WHILE_16_Z_IMM( gpr, imm )  if ( 0 == si_to_short((gpr)) )
-#define WHILE_32_NZ_IMM( gpr, imm ) if ( 0 != si_to_int((gpr)) )
-#define WHILE_32_Z_IMM( gpr, imm )  if ( 0 == si_to_int((gpr)) )
-
-static const std::map<std::string, std::string> CustomIntrins( imaps_array, imaps_array + _countof(imaps_array) );
+static const std::map<std::string, std::string> CustomIntrins( IntrinsicTemplateTable, IntrinsicTemplateTable + _countof(IntrinsicTemplateTable) );
 
 /*
 void gen_intrin_table()
@@ -351,7 +374,15 @@ static const std::string IntrinsicTemplates[] =
 
 static std::string ErrorUnknownInstruction( uint32_t Instruction )
 {
-	return std::string("// Error: intrinsic not found! OPCODE: ") + lexical_cast_hex(Instruction);
+	std::ostringstream oss;
+	oss << "// UNKNOWN OPCODE: " << lexical_cast(Instruction);
+	const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components( Instruction );
+	oss << " -- RT:" << OPComponents.RT;
+	oss << " RA:" << OPComponents.RA;
+	oss << " RB:" << OPComponents.RB;
+	oss << " RC:" << OPComponents.RC;
+	oss << " IMM:" << OPComponents.IMM;
+	return oss.str();
 }
 
 static std::string GetIntrinsicForm( const std::string& Mnemonic, SPU_OP_TYPE itype )
@@ -373,6 +404,8 @@ static std::string GetIntrinsicForm( const std::string& Mnemonic, SPU_OP_TYPE it
 	return result;
 }
 
+//static const std::regex rxRT("\\$RT\\$");
+
 std::string spu_make_pseudo( SPU_INSTRUCTION Instr, uint32_t IP )
 {	
 	const std::string		mnem = spu_decode_op_mnemonic(Instr.Instruction);
@@ -384,47 +417,73 @@ std::string spu_make_pseudo( SPU_INSTRUCTION Instr, uint32_t IP )
 
 	std::string				result = GetIntrinsicForm( mnem, itype );
 
-	const SPU_OP_COMPONENTS comp = spu_decode_op_components( Instr.Instruction );
+	const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components( Instr.Instruction );
+
+	const size_t LSLR_MASK = 0x3FFF0;
 		
-	replace_all( result, "$RT$", std::string("GPR(") + lexical_cast((uint16_t)comp.RT) + std::string(")") ); 
+	replace_all( result, "$RT$", std::string("GPR(") + lexical_cast_gpr((uint16_t)OPComponents.RT) + std::string(")") ); 
+
+	//result = std::regex_replace(result, rxRT, std::string("GPR(") + lexical_cast_gpr((uint16_t)OPComponents.RT) + std::string(")") );
 
 	switch (itype)
 	{
 	case SPU_OP_TYPE_RRR:
 		{				
-			replace_all( result, "$RC$", std::string("GPR(") + lexical_cast((uint16_t)comp.RC) + std::string(")") ); 
+			replace_all( result, "$RC$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RC) + std::string(")") ); 
 		}
 	case SPU_OP_TYPE_RR:
 		{
-			replace_all( result, "$RB$", std::string("GPR(") + lexical_cast((uint16_t)comp.RB) + std::string(")") ); 
-			replace_all( result, "$CA$", (comp.RA < 31) ? ChannelNames[comp.RA] : lexical_cast((uint16_t)comp.RA) );
+			replace_all( result, "$RB$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RB) + std::string(")") ); 
+			replace_all( result, "$CA$", (OPComponents.RA < 31) ? ChannelNames[OPComponents.RA] : lexical_cast((uint16_t)OPComponents.RA) );
 		}
 	case SPU_OP_TYPE_RI7:
 	case SPU_OP_TYPE_RI8:
 	case SPU_OP_TYPE_RI10:
 	case SPU_OP_TYPE_RI16:
 		{
-			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)comp.RA) + std::string(")") ); 
+			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RA) + std::string(")") ); 
 
-			replace_all( result, "$IMM$", lexical_cast_hex((int32_t)comp.IMM) );
+			replace_all( result, "$IMM$", lexical_cast_hex((int32_t)OPComponents.IMM) );
 				
-			replace_all( result, "$ADDR_REL$", lexical_cast_hex( 0x3fff0 & (IP + ((int32_t)comp.IMM * 2) )));
+			replace_all( result, "$LABEL$", lexical_cast_hex_addr( IP + ((int32_t)OPComponents.IMM << 2) ) );
+
+			//replace_all( result, "$QOFF$",		lexical_cast_hex( LSLR_MASK & ((int32_t)OPComponents.IMM << 4) ) );
+			replace_all( result, "$WADDR_REL$", lexical_cast_hex( LSLR_MASK & (IP + ((int32_t)OPComponents.IMM << 2)) ) );
+			replace_all( result, "$WADDR_ABS$", lexical_cast_hex( LSLR_MASK & ((int32_t)OPComponents.IMM << 2) ) );
+
+			std::ostringstream oss;
+			oss << "sub_" << std::hex << (IP + ((int32_t)OPComponents.IMM << 2)) << "();";
+			replace_all( result, "$FN_ADDR$", oss.str() );
+
+			if ( "brnz" == mnem || "brz" == mnem || "brhnz" == mnem || "brhz" == mnem )
+			{
+				if ( OPComponents.IMM > 0 )
+				{
+					result = std::string("IF") + result;
+				}
+				else
+				{
+					result = std::string("WHILE") + result;
+				}
+			}
 			break;
 		}
 	case SPU_OP_TYPE_RI18:
 		{
-			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)comp.RA) + std::string(")") ); 
+			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RA) + std::string(")") ); 
 			const size_t LSLR = 0x3FFFF;
-			replace_all( result, "$IMM18$", lexical_cast_hex(comp.IMM & LSLR) );
+			replace_all( result, "$IMM18$", lexical_cast(OPComponents.IMM & LSLR) );
+			result.resize(32, ' ');
+			result += lexical_cast_hex2(OPComponents.IMM & LSLR);
 			break;
 		}
 	case SPU_OP_TYPE_LBT:
 	case SPU_OP_TYPE_LBTI:
 		{
-			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)comp.RA) + std::string(")") ); 
+			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RA) + std::string(")") ); 
 
-			replace_all( result, "$BRINST$", lexical_cast_hex((int32_t)comp.IMM) );
-			replace_all( result, "$BRTARG$", lexical_cast_hex((int32_t)((uint64_t)comp.IMM >> 32)) );
+			replace_all( result, "$BRINST$", lexical_cast_hex((int32_t)OPComponents.IMM) );
+			replace_all( result, "$BRTARG$", lexical_cast_hex((int32_t)((uint64_t)OPComponents.IMM >> 32)) );
 			break;
 		}
 	}

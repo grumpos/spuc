@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <algorithm>
+//#include <string>
 #include "ppcdis.h"
+#include "ppc-opcode.h"
 
 
 enum ppc_iform_t
@@ -22,23 +24,25 @@ enum ppc_iform_t
 	IFORM_MDS
 };
 
+typedef uint32_t u32;
+
 union ppc_i_t
 {	
-	struct { uint32_t LK : 1; uint32_t AA : 1; uint32_t LI : 24;									uint32_t OPCD : 6; } _I;
-	struct { uint32_t LK : 1; uint32_t AA : 1; uint32_t BD : 14; uint32_t BI : 5; uint32_t BO : 5;	uint32_t OPCD : 6; } _B;
-	struct { uint32_t LK : 1; uint32_t pad1 : 3; uint32_t LEV : 7; uint32_t pad0 : 14;				uint32_t OPCD : 6; } _SC;
-	struct { uint32_t D : 16; uint32_t RA : 5; uint32_t RT : 5;										uint32_t OPCD : 6; } _D;
-	struct { uint32_t XO : 2; uint32_t DS : 14; uint32_t RA : 5; uint32_t RT : 5;					uint32_t OPCD : 6; } _DS;
-	struct { uint32_t Rc : 1; uint32_t XO : 10; uint32_t pad0 : 15;									uint32_t OPCD : 6; } _X;
-	struct { uint32_t Rc : 1; uint32_t XO : 10; uint32_t pad0 : 15;									uint32_t OPCD : 6; } _XL;
-	struct { uint32_t pad1 : 1; uint32_t XO : 10; uint32_t pad0 : 15;								uint32_t OPCD : 6; } _XFX;
-	struct { uint32_t Rc : 1; uint32_t XO : 10; uint32_t pad0 : 15;									uint32_t OPCD : 6; } _XFL;
-	struct { uint32_t Rc : 1; uint32_t sh : 1; uint32_t XO : 9; uint32_t pad0 : 15;					uint32_t OPCD : 6; } _XS;
-	struct { uint32_t Rc : 1; uint32_t XO : 9; uint32_t pad0 : 16;									uint32_t OPCD : 6; } _XO;
-	struct { uint32_t Rc : 1; uint32_t XO : 5; uint32_t FRC : 5; uint32_t FRB : 5; uint32_t FRA : 5; uint32_t FRT : 5; uint32_t OPCD : 6; } _A;
-	struct { uint32_t Rc : 1; uint32_t pad0 : 25;													uint32_t OPCD : 6; } _M;
-	struct { uint32_t Rc : 1; uint32_t sh : 1; uint32_t XO : 3; uint32_t pad0 : 21;					uint32_t OPCD : 6; } _MD;
-	struct { uint32_t Rc : 1; uint32_t XO : 4; uint32_t pad0 : 21;									uint32_t OPCD : 6; } _MDS;
+	struct { u32 LK : 1; u32 AA : 1; u32 LI : 24;							u32 OPCD : 6; } _I;
+	struct { u32 LK : 1; u32 AA : 1; u32 BD : 14; u32 BI : 5; u32 BO : 5;	u32 OPCD : 6; } _B;
+	struct { u32 LK : 1; u32 pad1 : 3; u32 LEV : 7; u32 pad0 : 14;			u32 OPCD : 6; } _SC;
+	struct { u32 D : 16; u32 RA : 5; u32 RT : 5;							u32 OPCD : 6; } _D;
+	struct { u32 XO : 2; u32 DS : 14; u32 RA : 5; u32 RT : 5;				u32 OPCD : 6; } _DS;
+	struct { u32 Rc : 1; u32 XO : 10; u32 pad0 : 15;						u32 OPCD : 6; } _X;
+	struct { u32 Rc : 1; u32 XO : 10; u32 pad0 : 15;						u32 OPCD : 6; } _XL;
+	struct { u32 un0 : 1; u32 XO : 10; u32 spr : 10; u32 RS : 5;			u32 OPCD : 6; } _XFX;
+	struct { u32 Rc : 1; u32 XO : 10; u32 pad0 : 15;						u32 OPCD : 6; } _XFL;
+	struct { u32 Rc : 1; u32 sh : 1; u32 XO : 9; u32 pad0 : 15;				u32 OPCD : 6; } _XS;
+	struct { u32 Rc : 1; u32 XO : 9; u32 pad0 : 16;							u32 OPCD : 6; } _XO;
+	struct { u32 Rc : 1; u32 XO : 5; u32 FRC : 5; u32 FRB : 5; u32 FRA : 5; u32 FRT : 5; u32 OPCD : 6; } _A;
+	struct { u32 Rc : 1; u32 pad0 : 25;										u32 OPCD : 6; } _M;
+	struct { u32 Rc : 1; u32 sh : 1; u32 XO : 3; u32 pad0 : 21;				u32 OPCD : 6; } _MD;
+	struct { u32 Rc : 1; u32 XO : 4; u32 pad0 : 21;							u32 OPCD : 6; } _MDS;
 	uint32_t Instuction;
 };
 
@@ -59,6 +63,18 @@ static const ppc_instr_info db_ppc_instr_info[] =
 	#include "ppc_ilist.h"
 };
 
+const char* ppc_decode_mnem2( uint32_t Instr )
+{
+	for ( size_t i = 0; i < _countof(ppc_opcodes); ++i )
+	{
+		uint32_t opc = ppc_opcodes[i].opcode;
+		if ( (opc>>26 == Instr>>26) && ((opc & Instr) == opc) )
+			return ppc_opcodes[i].name;
+	}
+
+	return "";
+}
+
 const char* ppc_decode_mnem( uint32_t i )
 {
 	ppc_i_t instr;
@@ -76,12 +92,12 @@ const char* ppc_decode_mnem( uint32_t i )
 	{
 		if ( MatchByOP->xop == (uint16_t)-1 )
 		{
-			if ( IFORM_D == MatchByOP->iform )
+			/*if ( IFORM_D == MatchByOP->iform )
 			{
 				static char buf[256];
 				sprintf_s( buf, "%s\t$%d, $%d, %%%d", MatchByOP->mnemonic, instr._D.RT,  instr._D.RA, instr._D.D );
 				return buf;
-			}
+			}*/
 
 			return MatchByOP->mnemonic;
 		}
@@ -123,3 +139,20 @@ const char* ppc_decode_mnem( uint32_t i )
 	_itoa_s( i, buf, 64, 16 );
 	return buf;
 }
+
+//#define LOAD_BYTE( base, off ) *(uin8_t*)((uin8_t*)(base) + (off));
+//#define LOAD_HALFZ( base, off ) *(uin16_t*)((uin8_t*)(base) + (off));
+//#define LOAD_HALFX( base, off ) *(in16_t*)((uin8_t*)(base) + (off));
+//
+//static const std::string templates[] =
+//{
+//	"lbz",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + $IMM$);",
+//	"lbzx",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + GPR($RB$));",
+//	"lbzu",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + $IMM$); GPR($RA$) = GPR($RA$) + $IMM$;",
+//	"lbzux",	"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + GPR($RB$)); GPR($RA$) = GPR($RA$) + GPR($RB$);",
+//	"lhz",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + $IMM$);",
+//	"lhzx",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + GPR($RB$));",
+//	"lhzu",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + $IMM$); GPR($RA$) = GPR($RA$) + $IMM$;",
+//	"lhzux",	"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + GPR($RB$)); GPR($RA$) = GPR($RA$) + GPR($RB$);",
+//};
+

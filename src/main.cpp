@@ -357,19 +357,55 @@ void testXMM( FN1_t fn1, FN2_t fn2 )
 #include <iterator>
 #include <iomanip>
 #include <intrin.h>
+#include <string>
 #include <fstream>
 #include "raw.h"
 #include "elf_helper.h"
 #include "basic_blocks.h"
+#include "src_file.h"
+#include "spu_pseudo.h"
 
+const char* ppc_decode_mnem( uint32_t i );
+
+//#include "spu_internals_x86.h"
+//#include "spu_unittest.h"
 
 using namespace std;
+
+//vector<string> StringTableA16( const char* begin, const char* end )
+//{
+//	vector<string> Res;
+//
+//	const char* b = begin;
+//
+//	while ( b != end )
+//	{
+//		if ( *b < 0x20 )
+//		{
+//			break;
+//		}
+//
+//		string NewString(b);		
+//
+//		Res.push_back(NewString);
+//
+//		b += NewString.size();
+//
+//		while ( !*b )
+//			++b;
+//	}	
+//
+//	return Res;
+//
+//}
+
 
 int main( int /*argc*/, char** /*argv*/ )
 {
 	vector<uint8_t> ELFFile;
 	{
-		memmap_t* ELFFileMapped = open( "D:\\Torrents\\BLES00945\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
+		memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
+		//memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\lv2ldr.elf" );
 
 		ELFFile.resize( size(ELFFileMapped) );
 
@@ -384,6 +420,45 @@ int main( int /*argc*/, char** /*argv*/ )
 		}
 	}
 
+	
+
+	//vector<string> tbl = StringTableA16( (const char*)(ELFFile.data() + 0xD0FA8), (const char*)(ELFFile.data() + 0xD3460) );
+
+	//elf::HeadersToSystemEndian( ELFFile.data() );
+
+	//vector<uint32_t> PPUBinary = elf::spu::LoadExecutable( ELFFile.data() );
+
+	//auto XSections = elf::PPUExecutables( ELFFile.data() );
+
+	//ofstream off("PPU bindump.txt");
+
+	//for ( size_t i = 0x200/4; i != 0x230/4; ++i )//elf::EntryPointIndex( ELFFile.data() )
+	//{
+	//	auto z = _byteswap_ulong(((uint32_t*)ELFFile.data())[i]);
+	//	off << string(ppc_decode_mnem( z )) << endl;
+	//}
+
+	/*vector<vector<string>> code;
+	code.resize(XSections.size());*/
+
+
+
+	/*transform( XSections.cbegin(), XSections.cend(), code.begin(), 
+		[]( const vector<uint32_t>& raws ) -> vector<string>
+	{
+		vector<string> InstrText;
+		InstrText.resize(raws.size());
+
+		for ( size_t i = 0; i != raws.size(); ++i )
+		{
+			InstrText[i] = ppc_decode_mnem(_byteswap_ulong(raws[i]));
+		}
+
+		return InstrText;
+	} );*/
+
+	//return 0;
+
 	vector<size_t> SPUELFOffsets;
 	{
 		SPUELFOffsets = elf::EnumEmbeddedSPUOffsets( ELFFile );
@@ -391,20 +466,16 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	vector<uint32_t> SPUBinary;
 	size_t EntryIndex = 0;
+	uint8_t* SPU0 = (uint8_t*)ELFFile.data() + SPUELFOffsets[0];
 	{
-		uint8_t* SPU0 = (uint8_t*)ELFFile.data() + SPUELFOffsets[0];
-
-		/*std::ofstream off ("spu.DumpLOC", ios::binary | ios::out);
-		off.write( (const char*)SPU0, SPUELFOffsets[1] - SPUELFOffsets[0]);
-		off.close();*/
-
-
 		elf::HeadersToSystemEndian( SPU0 );
 
 		SPUBinary = elf::spu::LoadExecutable( SPU0 );
 
 		for ( size_t i = 0; i != SPUBinary.size(); ++i )
+		{
 			SPUBinary[i] = _byteswap_ulong(SPUBinary[i]);
+		}
 
 		EntryIndex = elf::EntryPointIndex( SPU0 );
 	}
@@ -413,15 +484,17 @@ int main( int /*argc*/, char** /*argv*/ )
 	{
 		Distrib = spu::GatherOPDistribution( SPUBinary );
 	}
+	
+	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, Distrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
 
-	auto BBlocks = spu::BuildInitialBlocks( SPUBinary, Distrib, EntryIndex );
+	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
+		elf::VirtualBaseAddr(SPU0), elf::Entry(SPU0) );
 
+	/*uint8_t LS[0x40000];
+	elf::spu::LoadImage( LS, SPU0 );
 
-	/*cout << hex << uppercase;
-	copy( SPUBinary.cbegin(), SPUBinary.cend(), ostream_iterator<uint32_t>( cout, "\n" ) );*/
-
-	//return 0;
-
+	ofstream off("sad", ios::out | ios::binary);
+	off.write( (const char*)LS, 0x40000 );*/
 
 	/*__SPU_TEST_RR( 
 		si_ah, 
@@ -598,7 +671,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	
 	
 	
-	SPUTest_ReportErrors();*/
+	SPUTest_ReportErrors();/**/
 
 
 	
