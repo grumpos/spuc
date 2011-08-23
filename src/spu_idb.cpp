@@ -3,198 +3,198 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
-
-void spu_a( SPU_t* SPU, SPU_INSTRUCTION op );	
-void spu_absdb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_addx( SPU_t* SPU, SPU_INSTRUCTION op );	
-void spu_ah( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_ahi( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_ai( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_and( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_andbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_andc( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_andhi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_andi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_avgb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bg( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bgx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bihnz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bihz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_binz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bisl( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bisled( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_biz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_br( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_bra( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brasl( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brhnz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brhz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brnz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brsl( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_brz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cbd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cbx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cdd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cdx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceqb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceqbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceqh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceqhi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ceqi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cflts( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cfltu( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cg( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgtb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgtbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgth( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgthi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgti( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cgx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_chd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_chx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgtb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgtbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgth( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgthi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clgti( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_clz( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cntb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_csflt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cuflt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cwd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_cwx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfceq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfcgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfcmeq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfcmgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfa( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfm( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfma( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfms( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfnma( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfnms( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dfs( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_dsync( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_eqv( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fa( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fceq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fcgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fcmeq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fcmgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fm( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fma( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fms( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fnms( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fs( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fsm( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fsmb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fsmbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_fsmh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_gb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_gbb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_gbh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hbr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hbra( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hbrr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_heq( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_heqi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hgti( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hlgt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_hlgti( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_il( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_ila( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_ilh( SPU_t* SPU, SPU_INSTRUCTION op ); 	
-void spu_ilhu( SPU_t* SPU, SPU_INSTRUCTION op ); 	
-void spu_iohl( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_iret( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_lnop( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_lqa( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_lqd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_lqr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_lqx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mfspr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpy( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpya( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyhh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyhha( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyhhau( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyhhu( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpys( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyu( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mpyui( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_mtspr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_nand( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_nop( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_nor( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_or( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_orbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_orc( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_orhi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_ori( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_orx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rchcnt( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rdch( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rot( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_roth( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rothi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rothm( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rothmi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_roti( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotm( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotma( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotmah( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotmahi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotmai( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotmi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqbii( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqby( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqbybi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqbyi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqmbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqmbii( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqmby( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqmbybi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_rotqmbyi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_selb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_sf( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_sfh( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_sfhi( SPU_t* SPU, SPU_INSTRUCTION op );	
-void spu_sfi( SPU_t* SPU, SPU_INSTRUCTION op );		
-void spu_sfx( SPU_t* SPU, SPU_INSTRUCTION op );	
-void spu_shl( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlhi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shli( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlqbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlqbii( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlqby( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlqbybi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shlqbyi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_shufb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stop( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stopd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stqa( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stqd( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stqr( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_stqx( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_sumb( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_sync( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_wrch( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xor( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xorbi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xorhi( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xori( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xsbh( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xshw( SPU_t* SPU, SPU_INSTRUCTION op );
-void spu_xswd( SPU_t* SPU, SPU_INSTRUCTION op );
+////
+////void spu_a( SPU_t* SPU, SPU_INSTRUCTION op );	
+////void spu_absdb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_addx( SPU_t* SPU, SPU_INSTRUCTION op );	
+////void spu_ah( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_ahi( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_ai( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_and( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_andbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_andc( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_andhi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_andi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_avgb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bg( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bgx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bihnz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bihz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_binz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bisl( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bisled( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_biz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_br( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_bra( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brasl( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brhnz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brhz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brnz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brsl( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_brz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cbd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cbx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cdd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cdx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceqb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceqbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceqh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceqhi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ceqi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cflts( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cfltu( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cg( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgtb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgtbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgth( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgthi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgti( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cgx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_chd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_chx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgtb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgtbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgth( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgthi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clgti( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_clz( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cntb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_csflt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cuflt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cwd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_cwx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfceq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfcgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfcmeq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfcmgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfa( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfm( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfma( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfms( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfnma( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfnms( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dfs( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_dsync( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_eqv( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fa( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fceq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fcgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fcmeq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fcmgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fm( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fma( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fms( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fnms( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fs( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fsm( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fsmb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fsmbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_fsmh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_gb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_gbb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_gbh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hbr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hbra( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hbrr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_heq( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_heqi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hgti( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hlgt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_hlgti( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_il( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_ila( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_ilh( SPU_t* SPU, SPU_INSTRUCTION op ); 	
+////void spu_ilhu( SPU_t* SPU, SPU_INSTRUCTION op ); 	
+////void spu_iohl( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_iret( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_lnop( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_lqa( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_lqd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_lqr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_lqx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mfspr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpy( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpya( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyhh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyhha( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyhhau( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyhhu( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpys( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyu( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mpyui( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_mtspr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_nand( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_nop( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_nor( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_or( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_orbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_orc( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_orhi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_ori( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_orx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rchcnt( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rdch( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rot( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_roth( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rothi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rothm( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rothmi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_roti( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotm( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotma( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotmah( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotmahi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotmai( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotmi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqbii( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqby( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqbybi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqbyi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqmbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqmbii( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqmby( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqmbybi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_rotqmbyi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_selb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_sf( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_sfh( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_sfhi( SPU_t* SPU, SPU_INSTRUCTION op );	
+////void spu_sfi( SPU_t* SPU, SPU_INSTRUCTION op );		
+////void spu_sfx( SPU_t* SPU, SPU_INSTRUCTION op );	
+////void spu_shl( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlhi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shli( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlqbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlqbii( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlqby( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlqbybi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shlqbyi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_shufb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stop( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stopd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stqa( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stqd( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stqr( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_stqx( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_sumb( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_sync( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_wrch( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xor( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xorbi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xorhi( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xori( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xsbh( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xshw( SPU_t* SPU, SPU_INSTRUCTION op );
+////void spu_xswd( SPU_t* SPU, SPU_INSTRUCTION op );
 
 void spu_dummy_solver( struct SPU_t*, union SPU_INSTRUCTION op )
 {
@@ -476,7 +476,7 @@ size_t spu_decode_op_opcode( uint32_t op )
 	if ( !opcodes_parsed )
 	{
 		spu_build_op_db();
-		link_mnem_to_solver();
+		//link_mnem_to_solver();
 		opcodes_parsed = true;
 	}
 
@@ -512,10 +512,10 @@ const char* spu_decode_op_mnemonic( uint32_t op )
 	return db_op_mnemonic[spu_decode_op_opcode( op )].c_str();
 }
 
-SPU_INSTR_PTR spu_decode_op_solver( uint32_t op )
-{
-	return db_op_solver[spu_decode_op_opcode( op )];
-}
+//SPU_INSTR_PTR spu_decode_op_solver( uint32_t op )
+//{
+//	return db_op_solver[spu_decode_op_opcode( op )];
+//}
 
 SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 {
@@ -581,28 +581,28 @@ SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 	}
 }
 
-void link_mnem_to_solver()
-{
-	std::set<std::string> unimp;
-
-	size_t i = 0;
-	std::for_each( db_op_mnemonic.begin(), db_op_mnemonic.end(), [&unimp, &i]( const std::string& mnem ) {
-		if ( !mnem.empty() ) {
-			const auto mnem_solver = std::find_if( _solvers, _solvers + _countof(_solvers), [&]( const spu_mnem_op_t& x ) {
-				return mnem == x.first;
-			} );
-
-			if ( mnem_solver != (_solvers + _countof(_solvers)) ) {
-				db_op_solver[i] = mnem_solver->second;
-			}
-			else {		
-				unimp.insert( mnem );
-			}
-		}
-
-		++i;
-	});	
-
-	/*std::ofstream unimp_out("unimp.txt");
-	std::copy( unimp.begin(), unimp.end(), std::ostream_iterator<std::string>(unimp_out, "\n") );*/
-}
+//void link_mnem_to_solver()
+//{
+//	std::set<std::string> unimp;
+//
+//	size_t i = 0;
+//	std::for_each( db_op_mnemonic.begin(), db_op_mnemonic.end(), [&unimp, &i]( const std::string& mnem ) {
+//		if ( !mnem.empty() ) {
+//			const auto mnem_solver = std::find_if( _solvers, _solvers + _countof(_solvers), [&]( const spu_mnem_op_t& x ) {
+//				return mnem == x.first;
+//			} );
+//
+//			if ( mnem_solver != (_solvers + _countof(_solvers)) ) {
+//				db_op_solver[i] = mnem_solver->second;
+//			}
+//			else {		
+//				unimp.insert( mnem );
+//			}
+//		}
+//
+//		++i;
+//	});	
+//
+//	/*std::ofstream unimp_out("unimp.txt");
+//	std::copy( unimp.begin(), unimp.end(), std::ostream_iterator<std::string>(unimp_out, "\n") );*/
+//}

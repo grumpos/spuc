@@ -241,7 +241,7 @@ namespace elf
 
 	size_t VirtualBaseAddr( const void* ELF );
 
-	vector<uint32_t> PPUExecutables( void* ELF );
+	//vector<uint32_t> PPUExecutables( void* ELF );
 
 	namespace spu
 	{

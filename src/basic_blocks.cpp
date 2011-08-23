@@ -74,6 +74,21 @@ namespace spu
 		return IsBranch;
 	};
 
+	bool IsBranchUncond(uint32_t op)
+	{		
+		string mnem = spu_decode_op_mnemonic( op );
+
+		const string BranchOPs[] =
+		{
+			"br", "brsl", "bra", "brasl", /*"brz", "brnz", "brhz", "brhnz",*/
+			"bi", "bisl", "bisled", "iret", /*"biz", "binz", "bihz", "bihnz"*/
+		};
+
+		const bool IsBranch = (BranchOPs + _countof(BranchOPs)) != find( BranchOPs, BranchOPs + _countof(BranchOPs), mnem );
+
+		return IsBranch;
+	};
+
 	bool IsAnyBranch(uint32_t op)
 	{		
 		string mnem = spu_decode_op_mnemonic( op );
@@ -114,7 +129,7 @@ namespace spu
 	{
 		string mnem = spu_decode_op_mnemonic( op );
 
-		return "brsl" == mnem;
+		return ("brsl" == mnem) || ("brasl" == mnem);
 	}
 
 	bool IsReturn(uint32_t op)
@@ -156,8 +171,8 @@ namespace spu
 		return IsReturn(op) || IsSTOP(op) || IsFnCall(op) || IsJump(op);
 	}	
 
-	static set<size_t> Visited;
-	static map<size_t, size_t> FnBnd;
+	//static set<size_t> Visited;
+	//static map<size_t, size_t> FnBnd;
 
 	//CFlowNode* CFlowBuilder( const vector<uint32_t>& Binary, size_t begin, size_t end )
 	//{
@@ -274,10 +289,17 @@ namespace spu
 	//	WalkCFlowTree( Root->Follow, Depth );
 	//}
 
-	template<class T, class U>
+	/*template<class T, class U>
 	bool contains(const T& Container, U Element)
 	{
 		return Container.end() != find(Container.begin(), Container.end(), Element);
+	}*/
+
+	size_t FixFnEndInstrIndex( size_t OPIndex )
+	{
+		// fn entry must be 8 byte aligned, so word index must be even
+
+		return OPIndex%2 == 0 ? OPIndex+2 : OPIndex+1;
 	}
 
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
@@ -285,30 +307,33 @@ namespace spu
 	vector<pair<size_t, size_t>> BuildInitialBlocks( 
 		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex )
 	{	
+		set<size_t> InvalidJumps;
+		
 		set<size_t> FnEntryByStaticCall;
 		{
+			auto GetJumpTargets = [Binary, &InvalidJumps](size_t IOffset)->size_t
+			{
+				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
+
+				const size_t JmpTarget = IOffset + OPComponents.IMM;
+
+				if ( JmpTarget >= Binary.size() )
+					InvalidJumps.insert( JmpTarget );
+
+				return JmpTarget;
+			};
+
 			const auto& brsl = Distrib["brsl"];
+			const auto& brasl = Distrib["brasl"];
 
 			transform( brsl.cbegin(), brsl.cend(), 
 				std::inserter(FnEntryByStaticCall, FnEntryByStaticCall.end()),
-				[Binary](size_t IOffset)->size_t
-			{
-				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
-
-				return IOffset + OPComponents.IMM;
-			});
-
-			const auto& brasl = Distrib["brasl"];
+				GetJumpTargets );
 
 			transform( brasl.cbegin(), brasl.cend(), 
 				std::inserter(FnEntryByStaticCall, FnEntryByStaticCall.end()),
-				[Binary](size_t IOffset)->size_t
-			{
-				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
-
-				return IOffset + OPComponents.IMM;
-			});
-
+				GetJumpTargets );
+			
 			// main()
 			FnEntryByStaticCall.insert( EntryIndex );
 		}
@@ -352,7 +377,9 @@ namespace spu
 			while ( string("stop") != spu_decode_op_mnemonic(Binary[i]) )
 			 ++i;
 
-			MainEnd = ++i;
+			++i;
+
+			MainEnd = FixFnEndInstrIndex(i);
 		}
 
 		/*set<size_t> FnEntryAfterStop;
@@ -426,8 +453,7 @@ namespace spu
 			{
 				auto& br = Distrib["br"];
 
-				for_each( 
-					br.cbegin(), br.cend(),
+				for_each( br.cbegin(), br.cend(),
 					[&Jumps, &ScopeDepth, &Binary]( size_t IOffset )
 				{
 					if ( 0 == ScopeDepth[IOffset] )
@@ -437,6 +463,17 @@ namespace spu
 						if ( OPComponents.IMM < 0 )
 						{
 							Jumps.insert(IOffset);
+
+							/*if ( IOffset >= ( -OPComponents.IMM + 1) )
+							{
+								size_t JmpTargetPrev = IOffset + OPComponents.IMM;
+
+								while ( string("lnop") == spu_decode_op_mnemonic(Binary[--JmpTargetPrev]) )
+									;
+
+								if ( IsBranchUncond(Binary[JmpTargetPrev]) )
+									JumpsToFnEntry.insert( IOffset );
+							}*/
 						}
 						else
 						{
@@ -476,31 +513,12 @@ namespace spu
 			FnEntries.insert( FnEntryAfterReturn.begin(), FnEntryAfterReturn.end() );
 			FnEntries.insert( FnEntryAfterJumps.begin(), FnEntryAfterJumps.end() );
 			FnEntries.insert(MainEnd);
+			//FnEntries.insert( JumpsToFnEntry.begin(), JumpsToFnEntry.end() );
+			
 			//FnEntries.insert( FnEntryAfterStop.begin(), FnEntryAfterStop.end() );
-			deque<size_t> Entries(FnEntries.begin(), FnEntries.end());
+			//deque<size_t> Entries(FnEntries.begin(), FnEntries.end());		
 
-			//ofstream off("spu_code_0.intr");
-			//ofstream ioff("spu_code_0.info");
-
-			//for ( size_t i = 1; i < Binary.size(); ++i ) // start from 1, notepad++ indexes lines from 1
-			//{
-			//	ioff << hex << (0x3000+(i*4)) << endl;
-
-			//	/*if ( 0 != ScopeDepth[i] )
-			//	{
-			//		off << endl;
-			//		continue;
-			//	}*/
-			//	if ( !Entries.empty() && i == Entries.front() )
-			//	{
-			//		Entries.pop_front();
-			//		off << "\t\t" << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
-			//		continue;
-			//	}
-
-			//	off << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[i]), 0) << endl;
-			//}			
-
+			// 1st pass
 			transform(
 				FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
 				back_inserter( FnRanges ),
@@ -508,6 +526,53 @@ namespace spu
 			{
 				return make_pair( b, e );
 			});
+
+			set<size_t> JumpsToFnEntry;
+
+			auto IsBranchToFn = [Binary, &JumpsToFnEntry](range_t r)
+			{
+				size_t LastOPOffset = r.second-1;
+
+				if ( string("lnop") == spu_decode_op_mnemonic(Binary[LastOPOffset]) )
+					--LastOPOffset;
+
+				const uint32_t LastOP = Binary[LastOPOffset];
+
+				const SPU_OP_COMPONENTS OPC = spu_decode_op_components(LastOP);
+
+				if ( (string("br") == spu_decode_op_mnemonic(LastOP)) && (LastOPOffset + OPC.IMM < r.first) )
+				{
+					JumpsToFnEntry.insert(LastOPOffset + OPC.IMM);
+				}
+			};
+
+			set<size_t> NewEntrys;
+
+			do 
+			{
+				FnEntries.insert( NewEntrys.begin(), NewEntrys.end() );
+
+				FnRanges.clear();
+				JumpsToFnEntry.clear();
+				NewEntrys.clear();
+
+				transform(
+					FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
+					back_inserter( FnRanges ),
+					[](size_t b, size_t e) -> range_t
+				{
+					return make_pair( b, e );
+				});
+
+				for_each( FnRanges.cbegin(), FnRanges.cend(), IsBranchToFn );
+
+				set_difference( 
+					JumpsToFnEntry.cbegin(), JumpsToFnEntry.cend(),
+					FnEntries.cbegin(), FnEntries.cend(), 
+					inserter(NewEntrys, NewEntrys.end() ) );
+
+			} while ( !NewEntrys.empty() );
+
 
 			// turn jumps to function entries into brsl calls
 			{
@@ -551,32 +616,37 @@ namespace spu
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange )
 	{
 		uint8_t WrittenRegisters[128] = {0};
-		uint8_t ArgConut = 0;
+		uint8_t ArgCount = 0;
 
 		for ( size_t i = FnRange.first; i != FnRange.second; ++i )
 		{
+			string mnem = spu_decode_op_mnemonic(Binary[i]);
+
+			if ( mnem == "wrch" || mnem == "rdch" || mnem == "rchcnt" )
+				continue;
+
 			SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[i]);
 
-			if ( OPComponents.RA != 0xFF && OPComponents.RA > 2 )
+			if ( OPComponents.RA != 0xFF && OPComponents.RA > 2 && OPComponents.RA < 75 )
 			{
 				if ( 0 == WrittenRegisters[OPComponents.RA] )
-					ArgConut = max<uint8_t>( OPComponents.RA - 2, ArgConut );
+					ArgCount = max<uint8_t>( OPComponents.RA - 2, ArgCount );
 			}
-			if ( OPComponents.RB != 0xFF && OPComponents.RB > 2 )
+			if ( OPComponents.RB != 0xFF && OPComponents.RB > 2 && OPComponents.RB < 75 )
 			{
 				if ( 0 == WrittenRegisters[OPComponents.RB] )
-					ArgConut = max<uint8_t>( OPComponents.RB - 2, ArgConut );
+					ArgCount = max<uint8_t>( OPComponents.RB - 2, ArgCount );
 			}
-			if ( OPComponents.RC != 0xFF && OPComponents.RC > 2 )
+			if ( OPComponents.RC != 0xFF && OPComponents.RC > 2 && OPComponents.RC < 75 )
 			{
 				if ( 0 == WrittenRegisters[OPComponents.RC] )
-					ArgConut = max<uint8_t>( OPComponents.RC - 2, ArgConut );
+					ArgCount = max<uint8_t>( OPComponents.RC - 2, ArgCount );
 			}
 			if ( OPComponents.RT != 0xFF )
 				WrittenRegisters[OPComponents.RT] = 1;
 		}
 
-		return ArgConut;
+		return ArgCount;
 	}
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )

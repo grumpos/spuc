@@ -87,16 +87,16 @@ static const mn_intr_pair_t IntrinsicTemplateTable[] =
 	mn_intr_pair_t("a", "$RT$ = si_a($RA$,$RB$)"),
 	mn_intr_pair_t("ai", "$RT$ = si_ai($RA$,$IMM$)"),*/
 	mn_intr_pair_t("addx", "$RT$ = si_addx($RA$,$RB$,$RT$)"),
-	/*mn_intr_pair_t("cg", "$RT$ = si_cg($RA$,$RB$)"),
+	/*mn_intr_pair_t("cg", "$RT$ = si_cg($RA$,$RB$)"),*/
 	mn_intr_pair_t("cgx", "$RT$ = si_cgx($RA$,$RB$,$RT$)"),
-	mn_intr_pair_t("sfh", "$RT$ = si_sfh($RA$,$RB$)"),
+	/*mn_intr_pair_t("sfh", "$RT$ = si_sfh($RA$,$RB$)"),
 	mn_intr_pair_t("sfhi", "$RT$ = si_sfhi($IMM$,$RA$)"),
 	mn_intr_pair_t("sf", "$RT$ = si_sf($RA$,$RB$)"),
-	mn_intr_pair_t("sfi", "$RT$ = si_sfi($RA$,$IMM$)"),
+	mn_intr_pair_t("sfi", "$RT$ = si_sfi($RA$,$IMM$)"),*/
 	mn_intr_pair_t("sfx", "$RT$ = si_sfx($RA$,$RB$,$RT$)"),
-	mn_intr_pair_t("bg", "$RT$ = si_bg($RA$,$RB$)"),
+	/*mn_intr_pair_t("bg", "$RT$ = si_bg($RA$,$RB$)"),*/
 	mn_intr_pair_t("bgx", "$RT$ = si_bgx($RA$,$RB$,$RT$)"),
-	mn_intr_pair_t("mpy", "$RT$ = si_mpy($RA$,$RB$)"),
+	/*mn_intr_pair_t("mpy", "$RT$ = si_mpy($RA$,$RB$)"),
 	mn_intr_pair_t("mpyu", "$RT$ = si_mpyu($RA$,$RB$)"),
 	mn_intr_pair_t("mpyi", "$RT$ = si_mpyi($RA$,$IMM$)"),
 	mn_intr_pair_t("mpyui", "$RT$ = si_mpyui($RA$,$IMM$)"),
@@ -465,6 +465,23 @@ std::string spu_make_pseudo( SPU_INSTRUCTION Instr, uint32_t IP )
 				{
 					result = std::string("WHILE") + result;
 				}
+			}
+			else if ( "stop" == mnem )
+			{
+				union stopi
+				{
+					struct 
+					{
+						uint32_t snstype : 14;
+						uint32_t pad : 7;
+						uint32_t OP : 11;						
+					} stop_fmt;
+					uint32_t raw;
+				};
+
+				stopi si = {Instr.Instruction};
+
+				replace_all( result, "$IMM$", lexical_cast_hex(si.stop_fmt.snstype ) );
 			}
 			break;
 		}

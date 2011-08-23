@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <algorithm>
-//#include <string>
+
 #include "ppcdis.h"
 #include "ppc-opcode.h"
 
@@ -140,19 +140,39 @@ const char* ppc_decode_mnem( uint32_t i )
 	return buf;
 }
 
-//#define LOAD_BYTE( base, off ) *(uin8_t*)((uin8_t*)(base) + (off));
-//#define LOAD_HALFZ( base, off ) *(uin16_t*)((uin8_t*)(base) + (off));
-//#define LOAD_HALFX( base, off ) *(in16_t*)((uin8_t*)(base) + (off));
-//
-//static const std::string templates[] =
-//{
-//	"lbz",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + $IMM$);",
-//	"lbzx",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + GPR($RB$));",
-//	"lbzu",		"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + $IMM$); GPR($RA$) = GPR($RA$) + $IMM$;",
-//	"lbzux",	"GPR($RT$) = *(uin8_t*)MEM(GPR($RA$) + GPR($RB$)); GPR($RA$) = GPR($RA$) + GPR($RB$);",
-//	"lhz",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + $IMM$);",
-//	"lhzx",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + GPR($RB$));",
-//	"lhzu",		"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + $IMM$); GPR($RA$) = GPR($RA$) + $IMM$;",
-//	"lhzux",	"GPR($RT$) = *(uin16_t*)MEM(GPR($RA$) + GPR($RB$)); GPR($RA$) = GPR($RA$) + GPR($RB$);",
-//};
+#include <string>
+#include <vector>
 
+
+#define MEM( base, off, type )		*(type*)(__PPU_MEM_BASE + (base) + (off));
+
+#define LOAD_INSTRUCTIONS( type, mnemonic_base )\
+#mnemonic_base"z",		"GPR($RT$) = MEM( $RA$, $IMM$, "#type");",\
+#mnemonic_base"zx",		"GPR($RT$) = MEM( $RA$, $RB$, "#type");",\
+#mnemonic_base"zu",		"GPR($RT$) = MEM( $RA$, $IMM$, "#type"); GPR($RA$) = GPR($RA$) + $IMM$;",\
+#mnemonic_base"zux",	"GPR($RT$) = MEM( $RA$, $RB$, "#type"); GPR($RA$) = GPR($RA$) + GPR($RB$);",
+
+#define STORE_INSTRUCTIONS( type, mnemonic_base )\
+#mnemonic_base"z",		"MEM( $RA$, $IMM$, "#type") = ("#type")GPR($RS$);",\
+#mnemonic_base"zx",		"MEM( $RA$, $RB$, "#type") = ("#type")GPR($RS$);",\
+#mnemonic_base"zu",		"MEM( $RA$, $IMM$, "#type") = ("#type")GPR($RS$); GPR($RA$) = GPR($RA$) + $IMM$;",\
+#mnemonic_base"zux",	"MEM( $RA$, $RB$, "#type") = ("#type")GPR($RS$); GPR($RA$) = GPR($RA$) + GPR($RB$);",
+
+static const std::string templates[] =
+{
+	LOAD_INSTRUCTIONS( uint8_t, lb )
+	LOAD_INSTRUCTIONS( uint16_t, lh )
+	LOAD_INSTRUCTIONS( int16_t, lha )
+	LOAD_INSTRUCTIONS( uint32_t, lw )
+	LOAD_INSTRUCTIONS( int32_t, lwa )
+	LOAD_INSTRUCTIONS( uint64_t, ld )
+
+	STORE_INSTRUCTIONS( uint8_t, stb )
+	STORE_INSTRUCTIONS( uint16_t, sth )
+	STORE_INSTRUCTIONS( int16_t, stha )
+	STORE_INSTRUCTIONS( uint32_t, stw )
+	STORE_INSTRUCTIONS( int32_t, stwa )
+	STORE_INSTRUCTIONS( uint64_t, std )
+};
+
+static const std::vector<std::string> insns(templates, templates + _countof(templates));

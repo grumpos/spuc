@@ -77,6 +77,8 @@ namespace elf
 				if ( ELF_SPU_ARCH_ID == ((uint8_t*)&eh->e_machine)[1] )
 				{
 					ELFOffsets.push_back( b - (const uint8_t*)Data.data() );
+
+					b += _byteswap_ulong(eh->e_shoff) + (_byteswap_ulong(eh->e_shnum) * _byteswap_ulong(eh->e_shentsize));
 				}
 			}			
 
@@ -247,23 +249,52 @@ namespace elf
 
 				_32_traits_t::pheader_type* ph_b = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
 				_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
-				//assert( p->p_flags & PF_X );
+				
+				_32_traits_t::sheader_type* sh_b = (_32_traits_t::sheader_type*)((const uint8_t*)ELF + h->e_shoff);
+				_32_traits_t::sheader_type* sh_e = sh_b + h->e_shnum;
 
 				vector<uint32_t> Binary;
 
-				std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
+				if ( h->e_shnum )
 				{
-					if ( (PH.p_type & PT_LOAD) && (PH.p_filesz) )
+					while ( sh_b != sh_e && !(sh_b->sh_flags & SHF_EXECINSTR) )
+						++sh_b;
+
+					if ( sh_b != sh_e )
 					{
-						const uint32_t* b = (uint32_t*)((uint8_t*)ELF + PH.p_offset);
+						const size_t BaseAddr = sh_b->sh_addr;
 
-						size_t NextEntry = Binary.size();
+						std::for_each( sh_b, sh_e, [&](_32_traits_t::sheader_type SH)
+						{
+							if ( (SH.sh_type & SHT_PROGBITS) && (SH.sh_size) && (SH.sh_flags & SHF_EXECINSTR) )
+							{
+								size_t NextEntry = Binary.size();
 
-						Binary.resize( Binary.size() + PH.p_filesz/4, 0 );
+								Binary.resize( (SH.sh_addr - BaseAddr + SH.sh_size)/4, 0 );
 
-						memcpy( &Binary[NextEntry], b, PH.p_filesz );
+								const uint32_t* b = (uint32_t*)((uint8_t*)ELF + SH.sh_offset);
+
+								memcpy( &Binary[(SH.sh_addr - BaseAddr)/4], b, SH.sh_size );
+							}
+						} );
 					}
-				} );
+				}
+				else
+				{
+					std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
+					{
+						if ( (PH.p_type & PT_LOAD) && (PH.p_filesz) && (PH.p_flags & PF_X) )
+						{
+							const uint32_t* b = (uint32_t*)((uint8_t*)ELF + PH.p_offset);
+
+							size_t NextEntry = Binary.size();
+
+							Binary.resize( Binary.size() + PH.p_filesz/4, 0 );
+
+							memcpy( &Binary[NextEntry], b, PH.p_filesz );
+						}
+					} );
+				}				
 
 				return Binary;
 			}

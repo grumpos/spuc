@@ -67,7 +67,7 @@ namespace spu
 
 		// Includes
 		off << "#include \"spu_common.h\"" << endl;
-		off << "#include \"spu_internals_x86.h\"" << endl;
+		off << "#include \"../../../spu_intrin/src/spu_internals_x86.h\"" << endl;
 
 		off << endl << endl;
 
@@ -157,6 +157,8 @@ namespace spu
 
 			off << "}" << endl << endl;
 		}
+
+		off << "#define ENTRY " << MakeFnName(VirtualBase, EntryAddr) << endl << endl;
 
 		off << "#include \"spu_entry.h\"" << endl << endl;
 	}

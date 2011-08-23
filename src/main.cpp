@@ -404,8 +404,8 @@ int main( int /*argc*/, char** /*argv*/ )
 {
 	vector<uint8_t> ELFFile;
 	{
-		memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
-		//memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\lv2ldr.elf" );
+		//memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
+		memmap_t* ELFFileMapped = open( "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf" );
 
 		ELFFile.resize( size(ELFFileMapped) );
 
@@ -466,7 +466,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	vector<uint32_t> SPUBinary;
 	size_t EntryIndex = 0;
-	uint8_t* SPU0 = (uint8_t*)ELFFile.data() + SPUELFOffsets[0];
+	uint8_t* SPU0 = (uint8_t*)ELFFile.data();// + SPUELFOffsets[0];
 	{
 		elf::HeadersToSystemEndian( SPU0 );
 
@@ -488,7 +488,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, Distrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
 
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
-		elf::VirtualBaseAddr(SPU0), elf::Entry(SPU0) );
+		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 
 	/*uint8_t LS[0x40000];
 	elf::spu::LoadImage( LS, SPU0 );
@@ -496,183 +496,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	ofstream off("sad", ios::out | ios::binary);
 	off.write( (const char*)LS, 0x40000 );*/
 
-	/*__SPU_TEST_RR( 
-		si_ah, 
-		_mm_set1_epi16(1), 
-		_mm_set1_epi16(1),
-		_mm_set1_epi16(2))
-
-		__SPU_TEST_RI(
-		si_ahi,
-		_mm_set1_epi16(1), 
-		1ui16,
-		_mm_set1_epi16(2))
-
-		__SPU_TEST_RR( 
-		si_a, 
-		_mm_set1_epi32(1), 
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(2))
-
-		__SPU_TEST_RI( 
-		si_ai, 
-		_mm_set1_epi32(1), 
-		1ui32,
-		_mm_set1_epi32(2))
-
-		__SPU_TEST_RRR( 
-		si_addx, 
-		_mm_set1_epi32(1), 
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(3))
-
-		__SPU_TEST_RR( 
-		si_cg, 
-		_mm_set1_epi32(0xFFFFFFFF), 
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(1))
-
-		__SPU_TEST_RRR( 
-		si_cgx, 
-		_mm_set1_epi32(0xFFFFFFFE), 
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(1))
 	
-	
-		__SPU_TEST_RR(
-		si_sfh,
-		_mm_set1_epi16(2),
-		_mm_set1_epi16(2),
-		_mm_set1_epi16(0))
-
-		__SPU_TEST_RI(
-		si_sfhi,
-		_mm_set1_epi16(2),
-		2,
-		_mm_set1_epi16(0))
-
-		__SPU_TEST_RR(
-		si_sf,
-		_mm_set1_epi32(2),
-		_mm_set1_epi32(2),
-		_mm_set1_epi32(0))
-
-		__SPU_TEST_RI(
-		si_sfi,
-		_mm_set1_epi32(2),
-		2,
-		_mm_set1_epi32(0))
-
-		__SPU_TEST_RR(
-		si_bg,
-		_mm_set1_epi32(0xFFFFFFFE),
-		_mm_set1_epi32(0xFFFFFFFF),
-		_mm_set1_epi32(1))
-
-		__SPU_TEST_RR(
-		si_bg,
-		_mm_set1_epi32(0xFFFFFFFF),
-		_mm_set1_epi32(0xFFFFFFFF),
-		_mm_set1_epi32(1))
-
-		__SPU_TEST_RR(
-		si_bg,
-		_mm_set1_epi32(0xFFFFFFFF),
-		_mm_set1_epi32(0xFFFFFFFE),
-		_mm_set1_epi32(0))
-
-
-		__SPU_TEST_RRR(
-		si_sfx,
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(5),
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(4))
-
-		__SPU_TEST_RRR(
-		si_sfx,
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(5),
-		_mm_set1_epi32(0),
-		_mm_set1_epi32(3))
-	
-	
-		__SPU_TEST_RR(
-		si_mpy,
-		_mm_set1_epi32(0xFFFFi16),
-		_mm_set1_epi32(0xFi16),
-		_mm_set1_epi32(0xFFFFi16 * 0xFi16))
-
-		__SPU_TEST_RR(
-		si_mpyu,
-		_mm_set1_epi32(0xFFFFi16),
-		_mm_set1_epi32(0xFi16),
-		_mm_set1_epi32(0xFFFFui16 * 0xFui16))
-
-		__SPU_TEST_RI(
-		si_mpyi,
-		_mm_set1_epi32(0xFFFFi16),
-		0xFi16,
-		_mm_set1_epi32(0xFFFFi16 * 0xFi16))
-
-		__SPU_TEST_RI(
-		si_mpyui,
-		_mm_set1_epi32(0xFFFFi16),
-		0xFi16,
-		_mm_set1_epi32(0xFFFFui16 * 0xFui16))
-
-		__SPU_TEST_RRR(
-		si_mpya,
-		_mm_set1_epi32(0xFFFFi16),
-		_mm_set1_epi32(0xFi16),
-		_mm_set1_epi32(0xFi16),
-		_mm_set1_epi32(0xFFFFi16 * 0xFi16 + 0xFi16))
-	
-	
-		__SPU_TEST_RRR(
-		si_selb,
-		_mm_set1_epi32(0xFF00aaaa),
-		_mm_set1_epi32(0x00FF5555),
-		_mm_set1_epi32(0x00FF5555),
-		_mm_set1_epi32(0xFFFFFFFF))
-
-		__SPU_TEST_R(
-		si_cntb,
-		_mm_set1_epi8(1),
-		_mm_set1_epi8(1))
-
-		__SPU_TEST_R(
-		si_cntb,
-		_mm_set1_epi8(0),
-		_mm_set1_epi8(0))
-
-		__SPU_TEST_R(
-		si_cntb,
-		_mm_set1_epi8(-1),
-		_mm_set1_epi8(8))
-
-		__SPU_TEST_R(
-		si_clz,
-		_mm_set1_epi32(1),
-		_mm_set1_epi32(31))
-
-		__SPU_TEST_R(
-		si_clz,
-		_mm_set1_epi32(0),
-		_mm_set1_epi32(32))
-
-		__SPU_TEST_R(
-		si_clz,
-		_mm_set1_epi32(0xFFFFFFFF),
-		_mm_set1_epi32(0))
-	
-	
-	
-	
-	SPUTest_ReportErrors();/**/
-
 
 	
 	/*

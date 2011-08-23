@@ -16,12 +16,13 @@ namespace str_tools
 		};
 
 		const size_t nibbles = sizeof(T) * 2;
+		const size_t bits = sizeof(T)*8;
 
 		string res;
 
 		for ( size_t i = 0; i < nibbles; ++i )
 		{
-			res += bitrep[(val>>28)&0xF]; 
+			res += bitrep[(val>>(bits-4))&0xF]; 
 			val <<= 4;
 		}
 		return res;
