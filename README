@@ -22,7 +22,7 @@ SPU steps:
 	- Between entry points
 
 
-SPU optimizations:
+Possible SPU optimizations:
 
 - Turn pseudeo-assignments ( ADDing 0, ORing 0, etc. ) into normal assignments
 
@@ -47,4 +47,4 @@ FUNCTION ENDINGS:
 * negative static jump (br -***) into function body
 * negative static jump (br -***) before the first intruction of the function
 * positive static jump (br ***) 
-* LNOP if IP at return is even
+* fn entries are 8 byte aligned, padding done with LNOP 
