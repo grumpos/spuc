@@ -34,15 +34,38 @@ namespace spu
 {
 	typedef pair<size_t, size_t> range_t;
 
-	void MakeSPUSrcFile( const vector<uint32_t>& Binary, const vector<pair<size_t, size_t>>& FnRanges,
-		size_t SPUOffset, size_t VirtualBase, size_t EntryAddr )
+	vector<uint32_t> BytecodeFromRanges( const vector<uint32_t>& Binary, const vector<range_t>& FnRanges )
 	{
+		vector<uint32_t> NewBytecode;
+
+		for_each( FnRanges.cbegin(), FnRanges.cend(),
+			[Binary, &NewBytecode]( range_t r )
+		{
+			NewBytecode.insert( NewBytecode.end(), &Binary[r.first], &Binary[r.second] );
+		});
+
+		return NewBytecode;
+	}
+
+	void MakeSPUSrcFile( const vector<uint32_t>& Binary, const vector<vector<range_t>>& FnRanges,
+		size_t SPUOffset, size_t VirtualBase, size_t EntryAddr )
+	{		
+		vector<vector<uint32_t>> Bytecodes;
+		{
+			transform( FnRanges.cbegin(), FnRanges.cend()-1, 
+				inserter( Bytecodes, Bytecodes.end() ),
+				[&Bytecodes, Binary]( vector<range_t> FnRange ) -> vector<uint32_t>
+			{
+				return BytecodeFromRanges( Binary, FnRange );
+			});
+		}
+
 		vector<string> FunctionNames;
 		{
 			for_each( FnRanges.cbegin(), FnRanges.cend(),
-				[&FunctionNames, VirtualBase]( range_t FnRange )
+				[&FunctionNames, VirtualBase]( vector<range_t> FnRange )
 			{
-				FunctionNames.push_back( MakeFnName( VirtualBase, FnRange.first * 4 ) );
+				FunctionNames.push_back( MakeFnName( VirtualBase, FnRange[0].first * 4 ) );
 			});
 		}
 
@@ -67,7 +90,7 @@ namespace spu
 
 		// Includes
 		off << "#include \"spu_common.h\"" << endl;
-		off << "#include \"../../../spu_intrin/src/spu_internals_x86.h\"" << endl;
+		//off << "#include \"../../../spu_intrin/src/spu_internals_x86.h\"" << endl;
 
 		off << endl << endl;
 
@@ -88,13 +111,13 @@ namespace spu
 
 		transform( FunctionNames.cbegin(), FunctionNames.cend(), FnRanges.cbegin(),
 			ostream_iterator<string>(off, "\n"),
-			[&off, VirtualBase]( const string& FnName, range_t FnRange ) -> string
+			[&off, VirtualBase]( const string& FnName, vector<range_t> FnRange ) -> string
 		{
 			ostringstream oss;
 
 			oss << "\t";
 
-			oss << "std::make_pair( 0x" << hex << (VirtualBase + FnRange.first * 4) << dec;
+			oss << "std::make_pair( 0x" << hex << (VirtualBase + FnRange[0].first * 4) << dec;
 			oss << ", ";
 			oss << FnName;
 
@@ -118,7 +141,7 @@ namespace spu
 
 			off << "{" << endl;
 
-			vector<size_t> JumpTargets;
+			/*vector<size_t> JumpTargets;
 			JumpTargets.resize((*j).second - (*j).first);
 			{
 				for ( size_t k = (*j).first; k != (*j).second; ++k )
@@ -137,9 +160,19 @@ namespace spu
 						}
 					}
 				}
+			}*/
+
+			for ( auto FnIter = Bytecodes.cbegin(); FnIter != Bytecodes.cend(); ++FnIter )
+			{
+				for ( size_t i = 0; i != (*FnIter).size(); ++i )
+				{
+					//const size_t IP = VirtualBase + (i * 4);
+
+					off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)((*FnIter)[i]), 0) << endl;
+				}
 			}
 
-			for ( size_t k = (*j).first; k != (*j).second; ++k )
+			/*for ( size_t k = (*j).first; k != (*j).second; ++k )
 			{
 				if ( 1 == JumpTargets[k - (*j).first] )
 				{
@@ -153,7 +186,7 @@ namespace spu
 				const size_t IP = VirtualBase + (k * 4);
 
 				off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[k]), IP) << endl;
-			}
+			}*/
 
 			off << "}" << endl << endl;
 		}

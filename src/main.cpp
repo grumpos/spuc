@@ -125,39 +125,6 @@
 //	}
 //};
 
-/*
-template<class FN1_t, class FN2_t>
-void testXMM( FN1_t fn1, FN2_t fn2 )
-{
-	const __m128 testArray[] = 
-	{ 
-		_mm_castsi128_ps( _mm_set1_epi32(-16)),
-		_mm_castsi128_ps( _mm_set1_epi32(-1)),
-		_mm_castsi128_ps( _mm_set1_epi32(0)),
-		_mm_castsi128_ps( _mm_set1_epi32(1)),
-		_mm_castsi128_ps( _mm_set1_epi32(15)),
-	};
-
-	std::string name = "addx";
-	std::for_each(testArray, testArray + 5, 
-		[&](__m128 RA)
-	{		
-		std::cout << std::endl;
-		std::for_each(testArray, testArray + 5, 
-			[&, RA](__m128 RB)
-		{
-			std::cout << printXMMHex( RA );
-			std::cout << " " << name << std::endl;
-			std::cout << printXMMHex( RB );
-			std::cout << std::endl << std::string(3*16, '-') << std::endl;
-			__m128 RT = fn1(RA, RB);
-			__m128 testRT = fn2(RA, RB);
-			std::cout << printXMMHex( RT ) << " >>> " << ((0 == memcmp(&RT, &testRT, sizeof(__m128))) ? "PASS" : "FAIL");
-			std::cout << std::endl << std::endl;
-		});
-	});
-}*/
-
 //
 //struct node_t
 //{
@@ -365,7 +332,7 @@ void testXMM( FN1_t fn1, FN2_t fn2 )
 #include "src_file.h"
 #include "spu_pseudo.h"
 
-const char* ppc_decode_mnem( uint32_t i );
+//const char* ppc_decode_mnem( uint32_t i );
 
 //#include "spu_internals_x86.h"
 //#include "spu_unittest.h"
@@ -399,9 +366,91 @@ using namespace std;
 //
 //}
 
+#include <regex>
+#include <algorithm>
+#include <Windows.h>
+
+map<string, vector<string>> Calls;
+
+void f(const string& FnName, size_t IndentDepth, ostream& out)
+{
+	auto& FnList = Calls[FnName];
+
+	const string Indent(IndentDepth, ' ');
+
+	for ( size_t i = 0; i < FnList.size(); ++i )
+	{
+		out << Indent << FnList[i] << endl;
+		if ( FnList[i] != FnName ) 
+			f( FnList[i], IndentDepth + 1, out );
+	}
+}
+
 
 int main( int /*argc*/, char** /*argv*/ )
 {
+	/*ifstream iff("D:\\PS3\\spe_reg.txt");
+	ofstream off("D:\\PS3\\spe_reg.dump");
+
+	regex prnth("\\((.*)\\)");
+
+	if (iff.is_open())
+	{
+		string line;
+
+		while (getline(iff, line))
+		{
+			smatch res;
+
+			regex_search( line, res, prnth);
+
+			string rname = res[1].str();
+
+			if ( !rname.empty() && "CBEA Architected Registers" != rname && "Implementation-Specific Registers" != rname )
+				off << "uint64_t " << rname << ";" << endl;
+		}
+	}*/
+
+	/*ifstream iff("D:\\PS3\\spu_0.cpp");
+	ofstream off("D:\\PS3\\tree.txt");
+
+	if (iff.is_open())
+	{
+	regex fn_sig("static void (sub_.*)\\(\\)");
+	regex fn_call("(sub_[0-9a-fA-F]*)");
+
+	string line;
+
+
+
+	while (getline(iff, line))
+	if ( "static void sub_12c00()" == line )
+	break;
+
+	string CurrentFn = "sub_12c00";
+	smatch match1, match2;
+
+	while (getline(iff, line))
+	{
+	if ( regex_search( line, match1, fn_sig) )
+	{
+	Calls[CurrentFn];
+	CurrentFn = match1[1].str();
+
+	continue;
+	}
+	else if ( regex_search( line, match2, fn_call) )
+	{
+	if ( Calls[CurrentFn].end() == find(Calls[CurrentFn].begin(), Calls[CurrentFn].end(), match2[1].str() ) )
+	Calls[CurrentFn].push_back(match2[1].str());
+	}
+	}
+
+	}
+
+	f(Calls.begin()->first, 0, off);*/
+
+
 	vector<uint8_t> ELFFile;
 	{
 		//memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
@@ -419,45 +468,6 @@ int main( int /*argc*/, char** /*argv*/ )
 			return 1;
 		}
 	}
-
-	
-
-	//vector<string> tbl = StringTableA16( (const char*)(ELFFile.data() + 0xD0FA8), (const char*)(ELFFile.data() + 0xD3460) );
-
-	//elf::HeadersToSystemEndian( ELFFile.data() );
-
-	//vector<uint32_t> PPUBinary = elf::spu::LoadExecutable( ELFFile.data() );
-
-	//auto XSections = elf::PPUExecutables( ELFFile.data() );
-
-	//ofstream off("PPU bindump.txt");
-
-	//for ( size_t i = 0x200/4; i != 0x230/4; ++i )//elf::EntryPointIndex( ELFFile.data() )
-	//{
-	//	auto z = _byteswap_ulong(((uint32_t*)ELFFile.data())[i]);
-	//	off << string(ppc_decode_mnem( z )) << endl;
-	//}
-
-	/*vector<vector<string>> code;
-	code.resize(XSections.size());*/
-
-
-
-	/*transform( XSections.cbegin(), XSections.cend(), code.begin(), 
-		[]( const vector<uint32_t>& raws ) -> vector<string>
-	{
-		vector<string> InstrText;
-		InstrText.resize(raws.size());
-
-		for ( size_t i = 0; i != raws.size(); ++i )
-		{
-			InstrText[i] = ppc_decode_mnem(_byteswap_ulong(raws[i]));
-		}
-
-		return InstrText;
-	} );*/
-
-	//return 0;
 
 	vector<size_t> SPUELFOffsets;
 	{
@@ -490,18 +500,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 
-	/*uint8_t LS[0x40000];
-	elf::spu::LoadImage( LS, SPU0 );
-
-	ofstream off("sad", ios::out | ios::binary);
-	off.write( (const char*)LS, 0x40000 );*/
-
 	
-
-	
-	/*
-	__m128i asdasd = _mm_set_epi32( 0xFF, 0xFF00, 0xFF0000, 0xFF000000 );
-	volatile auto xx = si_orx((__m128&)asdasd);*/
 	/*std::ifstream fin("temp_ppc_ilist_raw.txt");
 	std::ofstream fout("ppc_ilist.h");
 
@@ -539,18 +538,6 @@ fout << "DEFINST( \"" << mnem.substr( 0, mnem.find('[')) << "\",\t IFORM_"
 	<< ifmt << ",\t " << op << ", " << xop << " )" << std::endl;
 		}
 	}*/
-
-	/*testXMM(si_mpy, [](__m128 RA, __m128 RB) -> __m128
-	{
-		__m128 RT;
-		for ( int i = 0; i < 4; ++i )
-		{
-			RT.m128_i32[i] = (int32_t)(int16_t)RA.m128_i32[i] * (int32_t)(int16_t)RB.m128_i32[i];
-		}
-		return RT;
-	});
-
-	return 0;*/
 
 	
 

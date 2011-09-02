@@ -246,7 +246,7 @@ static const mn_intr_pair_t IntrinsicTemplateTable[] =
 	// Channel
 	mn_intr_pair_t("rdch", "$RT$ = si_rdch($CA$)"),
 	mn_intr_pair_t("rchcnt", "$RT$ = si_rchcnt($CA$)"),
-	mn_intr_pair_t("wrch", "si_wrch($CA$,$RA$)"),
+	mn_intr_pair_t("wrch", "si_wrch($CA$,$RT$)"),
 
 	// Hint for branch
 	mn_intr_pair_t("hbr", "// HINT: hbr $$RA$, PC + $BRTARG$"),
@@ -334,7 +334,7 @@ static const char* ChannelNames[31] =
 	"$SPU_WrDec",
 	"$SPU_RdDec",
 	"$MFC_WrMSSyncReq",
-	"$11",
+	"$10",
 	"$SPU_RdEventMask",
 	"$MFC_RdTagMask",
 	"$SPU_RdMachStat",

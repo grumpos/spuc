@@ -171,140 +171,21 @@ namespace spu
 		return IsReturn(op) || IsSTOP(op) || IsFnCall(op) || IsJump(op);
 	}	
 
-	//static set<size_t> Visited;
-	//static map<size_t, size_t> FnBnd;
+	
 
-	//CFlowNode* CFlowBuilder( const vector<uint32_t>& Binary, size_t begin, size_t end )
-	//{
-	//	/*static size_t counter = 5;
-	//	if ( 0 == --counter )
-	//	{
-	//		return nullptr; 
-	//	}*/
-	//	
-
-	//	assert( begin < Binary.size() );
-	//	assert( end <= Binary.size() );
-
-	//	if ( begin == end )
-	//	{
-	//		return nullptr; 
-	//	}
-
-	//	CodeBlock NewBlock;
-
-	//	/*if (  begin != end && !IsCFlowOP(Binary[begin]) )
-	//	{
-	//		NewBlock.LOC.push_back( spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin++], 0 ) );
-	//	}*/
-	//	
-
-	//	while ( begin != end && !IsCFlowOP(Binary[begin]) )
-	//	{
-	//		NewBlock.LOC.push_back( spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin++], 0 ) );
-	//		//++begin;
-	//	}
-
-	//	if ( IsFnCall(Binary[begin]) )
-	//	{
-	//		const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
-
-	//		const size_t Target = begin + (int16_t)OPComponents.IMM;
-
-	//		CFlowNode* Node = new CFlowNode;
-	//		Node->Parent = nullptr;
-	//		Node->Block = NewBlock;
-	//		Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-	//		if ( Target < begin )
-	//		{
-	//			Node->Branch = CFlowBuilder( Binary, Target, begin );
-	//		}
-	//		else
-	//		{
-	//			Node->Branch = CFlowBuilder( Binary, Target, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
-	//		}
-	//		Node->Follow = CFlowBuilder( Binary, begin + 1, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
-
-	//		return Node;
-	//	}
-	//	else if ( IsJump(Binary[begin]) )
-	//	{
-	//		const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[begin]);
-
-	//		const size_t Target = begin + (int16_t)OPComponents.IMM;
-
-	//		CFlowNode* Node = new CFlowNode;
-	//		Node->Parent = nullptr;
-	//		Node->Block = NewBlock;
-	//		Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-	//		if ( Target < begin )
-	//		{
-	//			Node->Branch = CFlowBuilder( Binary, Target, begin );
-	//		}
-	//		else
-	//		{
-	//			Node->Branch = CFlowBuilder( Binary, Target, FnBnd[Target] > 0 ? FnBnd[Target] : Binary.size() );
-	//		}
-	//		Node->Follow = nullptr;
-
-	//		return Node;
-	//	}
-	//	else if ( IsReturn(Binary[begin]) || IsSTOP(Binary[begin]) )
-	//	{
-	//		CFlowNode* Node = new CFlowNode;
-	//		Node->Parent = nullptr;
-	//		Node->Block = NewBlock;
-	//		Node->BROP = spu_make_pseudo((SPU_INSTRUCTION&)Binary[begin], 0 );
-	//		Node->Branch = nullptr;
-	//		Node->Follow = nullptr;
-
-	//		return Node;
-	//	}
-
-	//	return nullptr;
-	//}
-
-	//ofstream off("calltree.txt");
-
-	//void WalkCFlowTree( CFlowNode* Root, size_t Depth )
-	//{
-	//	if ( !Root )
-	//	{
-	//		return;
-	//	}
-
-	//	const string Indent( Depth*2, ' ' );
-
-	//	for ( int i = 0; i != Root->Block.LOC.size() ; ++i )
-	//	{
-	//		off << Indent << Root->Block.LOC[i] << endl;
-	//	}
-
-	//	//copy( Root->Block.LOC.cbegin(), Root->Block.LOC.cend(), ostream_iterator<string>(cout, "\n" ) );
-	//	off << Indent << Root->BROP << endl;
-	//	//system("color 0F");
-	//	//cout << Indent << "----------" << endl;
-
-	//	WalkCFlowTree( Root->Branch, Depth + 1 );
-	//	WalkCFlowTree( Root->Follow, Depth );
-	//}
-
-	/*template<class T, class U>
-	bool contains(const T& Container, U Element)
+	size_t Next8ByteAlignedOPOffset( size_t CurrentOP )
 	{
-		return Container.end() != find(Container.begin(), Container.end(), Element);
-	}*/
+		// used to skip LNOPs at the end of subroutines
 
-	size_t FixFnEndInstrIndex( size_t OPIndex )
-	{
-		// fn entry must be 8 byte aligned, so word index must be even
-
-		return OPIndex%2 == 0 ? OPIndex+2 : OPIndex+1;
+		if ( CurrentOP & 1 )
+			return CurrentOP + 1;
+		else
+			return CurrentOP + 2;
 	}
 
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
 
-	vector<pair<size_t, size_t>> BuildInitialBlocks( 
+	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
 		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex )
 	{	
 		set<size_t> InvalidJumps;
@@ -348,9 +229,13 @@ namespace spu
 				{
 					return make_pair( IOffset, IOffset + OPComponents.IMM );
 				}
-				else
+				else if (OPComponents.IMM < 0)
 				{
 					return make_pair( IOffset + OPComponents.IMM, IOffset );
+				}
+				else
+				{
+					return make_pair(0,0);
 				}
 			};
 
@@ -379,46 +264,8 @@ namespace spu
 
 			++i;
 
-			MainEnd = FixFnEndInstrIndex(i);
+			MainEnd = Next8ByteAlignedOPOffset(i);
 		}
-
-		/*set<size_t> FnEntryAfterStop;
-		{
-			set<size_t> Stops;
-			{
-				auto& stop = Distrib["stop"];
-
-				for_each( 
-					stop.cbegin(), stop.cend(),
-					[&Stops, &ScopeDepth, &Binary]( size_t IOffset )
-				{
-					if ( 0 == ScopeDepth[IOffset] && IsSTOP( Binary[IOffset]) )
-					{
-						Stops.insert(IOffset);
-					}
-				});
-				auto& stopd = Distrib["stopd"];
-
-				for_each( 
-					stopd.cbegin(), stopd.cend(),
-					[&Stops, &ScopeDepth, &Binary]( size_t IOffset )
-				{
-					if ( 0 == ScopeDepth[IOffset] && IsSTOP( Binary[IOffset]) )
-					{
-						Stops.insert(IOffset);
-					}
-				});
-			}
-
-			transform( 
-				Stops.cbegin(), Stops.cend(),
-				std::inserter(FnEntryAfterStop, FnEntryAfterStop.end()),
-				[]( size_t IOffset ) -> size_t
-			{
-				const bool EvenIP = 0 == (IOffset % 2);
-				return IOffset + (EvenIP ? 2 : 1);
-			});
-		}*/
 
 		set<size_t> FnEntryAfterReturn;
 		{
@@ -430,7 +277,7 @@ namespace spu
 					bi.cbegin(), bi.cend(),
 					[&Returns, &ScopeDepth, &Binary]( size_t IOffset )
 				{
-					if ( 0 == ScopeDepth[IOffset] && IsReturn( Binary[IOffset]) )
+					if ( 0 == ScopeDepth[IOffset] && IsUncondReturn( Binary[IOffset]) )
 					{
 						Returns.insert(IOffset);
 					}
@@ -439,12 +286,8 @@ namespace spu
 
 			transform( 
 				Returns.cbegin(), Returns.cend(),
-				std::inserter(FnEntryAfterReturn, FnEntryAfterReturn.end()),
-				[]( size_t IOffset ) -> size_t
-			{
-				const bool EvenIP = 0 == (IOffset % 2);
-				return IOffset + (EvenIP ? 2 : 1);
-			});
+				std::inserter(FnEntryAfterReturn, FnEntryAfterReturn.end()), 
+				Next8ByteAlignedOPOffset );
 		}
 
 		set<size_t> FnEntryAfterJumps;
@@ -477,7 +320,11 @@ namespace spu
 						}
 						else
 						{
-							size_t b = IOffset + 1;
+							if ( 0 == ScopeDepth[IOffset + OPComponents.IMM] )
+							{
+								Jumps.insert(IOffset + OPComponents.IMM);
+							}
+							/*size_t b = IOffset + 1;
 							const size_t e = IOffset + OPComponents.IMM;
 
 							for ( ; b != e; ++b )
@@ -491,7 +338,7 @@ namespace spu
 							if ( b == e )
 							{
 								Jumps.insert(IOffset);
-							}
+							}*/
 						}
 					}
 				});
@@ -508,109 +355,162 @@ namespace spu
 		}		
 
 		vector<range_t> FnRanges;
+		vector<vector<range_t>> FnRanges2;
 		{			
 			auto FnEntries = FnEntryByStaticCall;
-			FnEntries.insert( FnEntryAfterReturn.begin(), FnEntryAfterReturn.end() );
-			FnEntries.insert( FnEntryAfterJumps.begin(), FnEntryAfterJumps.end() );
+			//FnEntries.insert( FnEntryAfterReturn.begin(), FnEntryAfterReturn.end() );
+			//FnEntries.insert( FnEntryAfterJumps.begin(), FnEntryAfterJumps.end() );
 			FnEntries.insert(MainEnd);
 			//FnEntries.insert( JumpsToFnEntry.begin(), JumpsToFnEntry.end() );
 			
-			//FnEntries.insert( FnEntryAfterStop.begin(), FnEntryAfterStop.end() );
-			//deque<size_t> Entries(FnEntries.begin(), FnEntries.end());		
-
-			// 1st pass
-			transform(
-				FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
-				back_inserter( FnRanges ),
-				[](size_t b, size_t e) -> range_t
+			for_each(
+				FnEntries.cbegin(), FnEntries.cend(),				
+				[Binary, &FnRanges2, &ScopeDepth](size_t b)->void
 			{
-				return make_pair( b, e );
+				vector<range_t> NewRange;
+
+				size_t e = b;
+
+				while ( e != Binary.size() )
+				{
+					if ( 0 == ScopeDepth[e] )
+					{
+						if ( IsUncondReturn( Binary[e] ) || IsSTOP( Binary[e] ))
+						{
+							NewRange.push_back( make_pair( b, Next8ByteAlignedOPOffset(e) ) );
+
+							FnRanges2.push_back(NewRange);
+
+							return;
+						}
+					
+						if ( IsJump( Binary[e] ))
+						{
+							const SPU_OP_COMPONENTS OPC = spu_decode_op_components(Binary[e]);
+
+							if ( OPC.IMM < 0 )
+							{
+								NewRange.push_back( make_pair( b, Next8ByteAlignedOPOffset(e) ) );
+
+								FnRanges2.push_back(NewRange);
+
+								return;
+							}
+							else if ( OPC.IMM > 0 && (0 == ScopeDepth[e + OPC.IMM]) )
+							{
+								NewRange.push_back( make_pair( b, e+1 ) );
+
+								b = e = (e + OPC.IMM);
+
+								continue;
+							}
+							else if ( OPC.IMM == 0 )
+							{
+								NewRange.push_back( make_pair( b, Next8ByteAlignedOPOffset(e) ) );
+
+								FnRanges2.push_back(NewRange);
+
+								return;
+							}
+						}						
+					}
+					++e;
+				}
 			});
 
-			set<size_t> JumpsToFnEntry;
+			// 1st pass
+			//transform(
+			//	FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
+			//	back_inserter( FnRanges ),
+			//	[](size_t b, size_t e) -> range_t
+			//{
+			//	return make_pair( b, e );
+			//});
 
-			auto IsBranchToFn = [Binary, &JumpsToFnEntry](range_t r)
-			{
-				size_t LastOPOffset = r.second-1;
+			//set<size_t> JumpsToFnEntry;
 
-				if ( string("lnop") == spu_decode_op_mnemonic(Binary[LastOPOffset]) )
-					--LastOPOffset;
+			//auto IsBranchToFn = [Binary, &JumpsToFnEntry](range_t r)
+			//{
+			//	size_t LastOPOffset = r.second-1;
 
-				const uint32_t LastOP = Binary[LastOPOffset];
+			//	if ( string("lnop") == spu_decode_op_mnemonic(Binary[LastOPOffset]) )
+			//		--LastOPOffset;
 
-				const SPU_OP_COMPONENTS OPC = spu_decode_op_components(LastOP);
+			//	const uint32_t LastOP = Binary[LastOPOffset];
 
-				if ( (string("br") == spu_decode_op_mnemonic(LastOP)) && (LastOPOffset + OPC.IMM < r.first) )
-				{
-					JumpsToFnEntry.insert(LastOPOffset + OPC.IMM);
-				}
-			};
+			//	const SPU_OP_COMPONENTS OPC = spu_decode_op_components(LastOP);
 
-			set<size_t> NewEntrys;
+			//	if ( (string("br") == spu_decode_op_mnemonic(LastOP)) && (LastOPOffset + OPC.IMM < r.first) )
+			//	{
+			//		JumpsToFnEntry.insert(LastOPOffset + OPC.IMM);
+			//	}
+			//};
 
-			do 
-			{
-				FnEntries.insert( NewEntrys.begin(), NewEntrys.end() );
+			//set<size_t> NewEntrys;
 
-				FnRanges.clear();
-				JumpsToFnEntry.clear();
-				NewEntrys.clear();
+			//do 
+			//{
+			//	FnEntries.insert( NewEntrys.begin(), NewEntrys.end() );
 
-				transform(
-					FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
-					back_inserter( FnRanges ),
-					[](size_t b, size_t e) -> range_t
-				{
-					return make_pair( b, e );
-				});
+			//	FnRanges.clear();
+			//	JumpsToFnEntry.clear();
+			//	NewEntrys.clear();
 
-				for_each( FnRanges.cbegin(), FnRanges.cend(), IsBranchToFn );
+			//	transform(
+			//		FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
+			//		back_inserter( FnRanges ),
+			//		[](size_t b, size_t e) -> range_t
+			//	{
+			//		return make_pair( b, e );
+			//	});
 
-				set_difference( 
-					JumpsToFnEntry.cbegin(), JumpsToFnEntry.cend(),
-					FnEntries.cbegin(), FnEntries.cend(), 
-					inserter(NewEntrys, NewEntrys.end() ) );
+			//	for_each( FnRanges.cbegin(), FnRanges.cend(), IsBranchToFn );
 
-			} while ( !NewEntrys.empty() );
+			//	set_difference( 
+			//		JumpsToFnEntry.cbegin(), JumpsToFnEntry.cend(),
+			//		FnEntries.cbegin(), FnEntries.cend(), 
+			//		inserter(NewEntrys, NewEntrys.end() ) );
+
+			//} while ( !NewEntrys.empty() );
 
 
-			// turn jumps to function entries into brsl calls
-			{
-				auto& br = Distrib["br"];
+			//// turn jumps to function entries into brsl calls
+			//{
+			//	auto& br = Distrib["br"];
 
-				for ( size_t i = 0; i != br.size(); ++i )
-				{
-					const size_t IOffset = br[i];
+			//	for ( size_t i = 0; i != br.size(); ++i )
+			//	{
+			//		const size_t IOffset = br[i];
 
-					const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
+			//		const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
 
-					const size_t Jumptarget = IOffset + OPComponents.IMM;
+			//		const size_t Jumptarget = IOffset + OPComponents.IMM;
 
-					if ( FnEntries.cend() != find(FnEntries.cbegin(), FnEntries.cend(), Jumptarget) )
-					{
-						SPU_INSTRUCTION SI;
-						SI.RI16.OP = 0x66;
-						SI.RI16.I16 = OPComponents.IMM;
-						SI.RI16.RT = 0;
+			//		if ( FnEntries.cend() != find(FnEntries.cbegin(), FnEntries.cend(), Jumptarget) )
+			//		{
+			//			SPU_INSTRUCTION SI;
+			//			SI.RI16.OP = 0x66;
+			//			SI.RI16.I16 = OPComponents.IMM;
+			//			SI.RI16.RT = 0;
 
-						Binary[IOffset] = SI.Instruction;
-					}
-				}
-			}
+			//			Binary[IOffset] = SI.Instruction;
+			//		}
+			//	}
+			//}
 		}
 
 		
 
-		vector<uint8_t> FnArgCounts;
+		/*vector<uint8_t> FnArgCounts;
 		FnArgCounts.resize(FnRanges.size());
 
 		transform( FnRanges.cbegin(), FnRanges.cend(), FnArgCounts.begin(),
-			[Binary]( pair<size_t, size_t> FnRange )
+		[Binary]( pair<size_t, size_t> FnRange )
 		{
-			return GetFnArgCount(Binary, FnRange);
-		});
+		return GetFnArgCount(Binary, FnRange);
+		});*/
 
-		return FnRanges;
+		return FnRanges2;
 	}
 
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange )
@@ -620,10 +520,10 @@ namespace spu
 
 		for ( size_t i = FnRange.first; i != FnRange.second; ++i )
 		{
-			string mnem = spu_decode_op_mnemonic(Binary[i]);
+			/*string mnem = spu_decode_op_mnemonic(Binary[i]);
 
 			if ( mnem == "wrch" || mnem == "rdch" || mnem == "rchcnt" )
-				continue;
+				continue;*/
 
 			SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[i]);
 
@@ -663,5 +563,49 @@ namespace spu
 		}	
 
 		return Distrib;
+	}
+
+#define IS_BRANCH (1 << 0)
+#define IS_BRANCH_CONDITIONAL (1 << 1)
+
+	vector<uint64_t> BuildOPFlags( const vector<uint32_t>& Binary, op_distrib_t& Distrib )
+	{
+		vector<uint64_t> Flags;
+
+		Flags.resize( Binary.size() );
+
+		auto& br = Distrib["br"];
+		for_each( br.begin(), br.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH; } );
+
+		auto& bra = Distrib["bra"];
+		for_each( bra.begin(), bra.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH; } );
+
+		auto& brsl = Distrib["brsl"];
+		for_each( brsl.begin(), brsl.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH; } );
+
+		auto& brasl = Distrib["brasl"];
+		for_each( brasl.begin(), brasl.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH; } );
+
+		auto& brz = Distrib["brz"];
+		for_each( brz.begin(), brz.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH & IS_BRANCH_CONDITIONAL; } );
+
+		auto& brnz = Distrib["brnz"];
+		for_each( brnz.begin(), brnz.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH & IS_BRANCH_CONDITIONAL; } );
+
+		auto& brhz = Distrib["brhz"];
+		for_each( brhz.begin(), brhz.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH & IS_BRANCH_CONDITIONAL; } );
+
+		auto& brhnz = Distrib["brhnz"];
+		for_each( brhnz.begin(), brhnz.end(), [&Flags](size_t Index)
+			{ Flags[Index] |= IS_BRANCH & IS_BRANCH_CONDITIONAL; } );
+
+		return Flags;
 	}
 };
