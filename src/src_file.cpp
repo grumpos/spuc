@@ -18,15 +18,15 @@ static string MakeFnName( size_t BaseAddr, size_t EntryOffset )
 	return oss.str();
 }
 
-static string MakeFnSignature( size_t BaseAddr, size_t EntryOffset )
-{
-	return string("void") + MakeFnName(BaseAddr, EntryOffset) + string("()");
-}
+// static string MakeFnSignature( size_t BaseAddr, size_t EntryOffset )
+// {
+// 	return string("void") + MakeFnName(BaseAddr, EntryOffset) + string("()");
+// }
 
 static string MakeLabel( size_t BaseAddr, size_t EntryOffset )
 {
 	ostringstream oss;
-	oss << "loc_" << hex << (BaseAddr + EntryOffset);
+	oss << "loc_" << hex << (BaseAddr + EntryOffset) << ":";
 	return oss.str();
 }
 
@@ -41,22 +41,52 @@ namespace spu
 		for_each( FnRanges.cbegin(), FnRanges.cend(),
 			[Binary, &NewBytecode]( range_t r )
 		{
-			NewBytecode.insert( NewBytecode.end(), &Binary[r.first], &Binary[r.second] );
+			NewBytecode.insert( NewBytecode.end(), Binary.cbegin() + r.first, Binary.cbegin() + r.second );
+			//NewBytecode.insert( NewBytecode.end(), &Binary[r.first], &Binary[r.second] );
 		});
 
 		return NewBytecode;
 	}
 
+	vector<uint32_t> IPFromRanges( const vector<range_t>& FnRanges )
+	{
+		vector<uint32_t> NewIPList;
+
+		for_each( FnRanges.cbegin(), FnRanges.cend(),
+			[&NewIPList]( range_t r )
+		{
+			NewIPList.reserve( NewIPList.size() + r.second - r.first );
+
+			for ( uint32_t i = r.first; i != r.second; ++i )
+			{
+				NewIPList.push_back(i);
+			}
+		});
+
+		return NewIPList;
+	}
+
 	void MakeSPUSrcFile( const vector<uint32_t>& Binary, const vector<vector<range_t>>& FnRanges,
+		const vector<uint64_t>& OPFlags,
 		size_t SPUOffset, size_t VirtualBase, size_t EntryAddr )
 	{		
 		vector<vector<uint32_t>> Bytecodes;
 		{
-			transform( FnRanges.cbegin(), FnRanges.cend()-1, 
-				inserter( Bytecodes, Bytecodes.end() ),
-				[&Bytecodes, Binary]( vector<range_t> FnRange ) -> vector<uint32_t>
+			transform( FnRanges.cbegin(), FnRanges.cend(), 
+				back_inserter( Bytecodes ),
+				[&Bytecodes, Binary]( const vector<range_t>& FnRange ) -> vector<uint32_t>
 			{
 				return BytecodeFromRanges( Binary, FnRange );
+			});
+		}
+
+		vector<vector<uint32_t>> IPs;
+		{
+			transform( FnRanges.cbegin(), FnRanges.cend(), 
+				back_inserter( IPs ),
+				[&Bytecodes, Binary]( const vector<range_t>& FnRange ) -> vector<uint32_t>
+			{
+				return IPFromRanges( FnRange );
 			});
 		}
 
@@ -95,11 +125,6 @@ namespace spu
 		off << endl << endl;
 
 		// Function declarations
-		/*for_each( FunctionSignatures.cbegin(), FunctionSignatures.cend(),
-			[&off]( const string& FnSig )
-		{
-			off << FnSig << ";" << endl;
-		});*/
 
 		copy( FunctionSignatures.cbegin(), FunctionSignatures.cend(), ostream_iterator<string>(off, ";\n") );
 
@@ -132,61 +157,37 @@ namespace spu
 
 		off << endl << endl;
 
-		auto i = FunctionSignatures.cbegin();
-		auto j = FnRanges.cbegin();
+		auto FnSigIter = FunctionSignatures.cbegin();
+		auto BytecodeIter = Bytecodes.cbegin();
+		auto IPIter = IPs.cbegin();
 
-		for ( ; i != FunctionSignatures.cend(); ++i, ++j )
+
+		for ( ; FnSigIter != FunctionSignatures.cend(); ++FnSigIter, ++BytecodeIter, ++IPIter )
 		{
-			off << *i << endl;
+			off << *FnSigIter << endl;
 
 			off << "{" << endl;
 
-			/*vector<size_t> JumpTargets;
-			JumpTargets.resize((*j).second - (*j).first);
+			for ( size_t k = 0; k != (*BytecodeIter).size(); ++k )
 			{
-				for ( size_t k = (*j).first; k != (*j).second; ++k )
+				const size_t IP = VirtualBase + ((*IPIter)[k] * 4);
+
+				if ( OPFlags[(*IPIter)[k]] & SPU_IS_BRANCH_TARGET )
 				{
-					const string mnem = spu_decode_op_mnemonic(Binary[k]);
-
-					if ( "brnz" == mnem || "brz" == mnem || "brhnz" == mnem || "brhz" == mnem || "br" == mnem )
-					{
-						SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[k]);
-
-						const size_t target = k + OPComponents.IMM;
-
-						if ( ((*j).first <= target) && (target < (*j).second) )
-						{
-							JumpTargets[target - (*j).first] = 1;
-						}
-					}
+					off << MakeLabel( VirtualBase, (*IPIter)[k] * 4 ) << endl;
 				}
-			}*/
 
-			for ( auto FnIter = Bytecodes.cbegin(); FnIter != Bytecodes.cend(); ++FnIter )
-			{
-				for ( size_t i = 0; i != (*FnIter).size(); ++i )
+				if ( OPFlags[(*IPIter)[k]] & SPU_IS_ASSIGNMENT )
 				{
-					//const size_t IP = VirtualBase + (i * 4);
+					const SPU_OP_COMPONENTS OPC = spu_decode_op_components( (*BytecodeIter)[k] );
 
-					off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)((*FnIter)[i]), 0) << endl;
+					off << "\tGPR(" << (uint16_t)OPC.RT << ") = GPR(" << (uint16_t)OPC.RA << ");" << endl;
 				}
+				else
+				{
+					off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)((*BytecodeIter)[k]), IP) << endl;
+				}				
 			}
-
-			/*for ( size_t k = (*j).first; k != (*j).second; ++k )
-			{
-				if ( 1 == JumpTargets[k - (*j).first] )
-				{
-					ostringstream oss;
-
-					oss << "loc_" << hex << (VirtualBase + (k) * 4) << ":";
-
-					off << oss.str() << endl;
-				}
-
-				const size_t IP = VirtualBase + (k * 4);
-
-				off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)(Binary[k]), IP) << endl;
-			}*/
 
 			off << "}" << endl << endl;
 		}

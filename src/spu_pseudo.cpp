@@ -443,7 +443,7 @@ std::string spu_make_pseudo( SPU_INSTRUCTION Instr, uint32_t IP )
 		{
 			replace_all( result, "$RA$", std::string("GPR(") + lexical_cast((uint16_t)OPComponents.RA) + std::string(")") ); 
 
-			replace_all( result, "$IMM$", lexical_cast_hex((int32_t)OPComponents.IMM) );
+			
 				
 			replace_all( result, "$LABEL$", lexical_cast_hex_addr( IP + ((int32_t)OPComponents.IMM << 2) ) );
 
@@ -481,8 +481,11 @@ std::string spu_make_pseudo( SPU_INSTRUCTION Instr, uint32_t IP )
 
 				stopi si = {Instr.Instruction};
 
-				replace_all( result, "$IMM$", lexical_cast_hex(si.stop_fmt.snstype ) );
+				replace_all( result, "$IMM$", lexical_cast_hex( si.stop_fmt.snstype ) );
 			}
+
+			replace_all( result, "$IMM$", lexical_cast_hex((int32_t)OPComponents.IMM) );
+
 			break;
 		}
 	case SPU_OP_TYPE_RI18:

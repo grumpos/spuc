@@ -6,6 +6,14 @@
 #include <vector>
 #include <string>
 
+#define SPU_IS_BRANCH				(1 << 0)
+#define SPU_IS_BRANCH_CONDITIONAL	(1 << 1)
+#define SPU_IS_BRANCH_TARGET		(1 << 2)
+#define SPU_IS_ASSIGNMENT			(1 << 3)
+
+#define BB_LEAD						SPU_IS_BRANCH_TARGET
+#define BB_TERM						SPU_IS_BRANCH
+
 const size_t SPU_MAX_INSTRUCTION_COUNT = 0x800;
 
 enum SPU_OP_TYPE
@@ -20,8 +28,6 @@ enum SPU_OP_TYPE
 	SPU_OP_TYPE_LBT		= 7,
 	SPU_OP_TYPE_LBTI	= 8
 };
-
-
 
 static const uint8_t A_T	= 0;
 static const uint8_t A_A	= 1;
@@ -74,5 +80,6 @@ const char*		spu_decode_op_mnemonic( uint32_t op );
 size_t			spu_decode_op_opcode( uint32_t op );
 SPU_INSTR_PTR	spu_decode_op_solver( uint32_t op );
 SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr );
+ptrdiff_t		spu_op_decode_branch_offset( uint32_t Instr );
 
 #endif

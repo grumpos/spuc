@@ -512,10 +512,12 @@ const char* spu_decode_op_mnemonic( uint32_t op )
 	return db_op_mnemonic[spu_decode_op_opcode( op )].c_str();
 }
 
-//SPU_INSTR_PTR spu_decode_op_solver( uint32_t op )
-//{
-//	return db_op_solver[spu_decode_op_opcode( op )];
-//}
+ptrdiff_t spu_op_decode_branch_offset( uint32_t op )
+{
+	const SPU_OP_COMPONENTS OPC = spu_decode_op_components( op );
+
+	return OPC.IMM;
+}
 
 SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 {

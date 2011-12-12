@@ -2,7 +2,7 @@
 #ifndef __SPU_EMU_H__
 #define __SPU_EMU_H__
 
-#include <emmintrin.h>
+
 #include <cstdint>
 #include <intrin.h>
 //#include <vector>
@@ -21,19 +21,19 @@ union SPU_INSTRUCTION
 	uint32_t Instruction;
 };
 
-#define QWORD_REVERSE_COPY 0
-
-#define SPU_RunCntl_STOP_REQUEST			 0x00000000ui32
-#define SPU_RunCntl_RUN_REQUEST				 0x00000001ui32
-#define SPU_RunCntl_ISOLATION_EXIT_REQUEST	 0x00000002ui32
-#define SPU_RunCntl_ISOLATION_LOAD_REQUEST	 0x00000003ui32
-#define SPU_PrivCntl_ISOLATION_LOAD_REQUEST	 0x0000000000000001ui64
-#define SPU_PrivCntl_ATTENTION_EVENT_REQUEST 0x0000000000000002ui64
-#define SPU_PrivCntl_SINGLE_STEP_MODE		 0x0000000000000004ui64
-#define SPU_Status_RUN						 0x00000001ui32
+//#define QWORD_REVERSE_COPY 0
+//
+//#define SPU_RunCntl_STOP_REQUEST			 0x00000000ui32
+//#define SPU_RunCntl_RUN_REQUEST				 0x00000001ui32
+//#define SPU_RunCntl_ISOLATION_EXIT_REQUEST	 0x00000002ui32
+//#define SPU_RunCntl_ISOLATION_LOAD_REQUEST	 0x00000003ui32
+//#define SPU_PrivCntl_ISOLATION_LOAD_REQUEST	 0x0000000000000001ui64
+//#define SPU_PrivCntl_ATTENTION_EVENT_REQUEST 0x0000000000000002ui64
+//#define SPU_PrivCntl_SINGLE_STEP_MODE		 0x0000000000000004ui64
+//#define SPU_Status_RUN						 0x00000001ui32
 
 // SPU Channels
-#define SPU_RdEventStat 0x0
+/*#define SPU_RdEventStat 0x0
 #define SPU_WrEventMask 0x1
 #define SPU_WrEventAck 0x2
 
@@ -56,51 +56,51 @@ union SPU_INSTRUCTION
 #define MFC_EAH 0x11
 #define MFC_EAL 0x12
 #define MFC_Size 0x13
-#define MFC_TagID 0x14
+#define MFC_TagID 0x14*/
 
 
 typedef __m128 GPR_t;
 
-struct SPU_t
-{
-	SPU_t();
-	~SPU_t();
-	
-	GPR_t* GPR;
-	uint8_t* LocalStorage;
+//struct SPU_t
+//{
+//	SPU_t();
+//	~SPU_t();
+//	
+//	GPR_t* GPR;
+//	uint8_t* LocalStorage;
+//
+//	uint32_t IP;
+//
+//	// User
+//
+//	struct
+//	{
+//		uint32_t Run : 2;
+//		uint32_t Reserved_0_29 : 30;
+//	} SPU_RunCntl;
+//
+//	uint32_t SPU_Status;
+//
+//	struct
+//	{
+//		uint32_t InterruptEnable : 1;
+//		uint32_t Reserved_30 : 1;
+//		uint32_t LocalStorageAddress : 30;
+//	} SPU_NPC;
+//
+//
+//	// Privileged
+//	uint64_t SPU_PrivCntl;
+//	static const uint64_t SPU_LSLR = 0x000000000003ffff;
+//};
 
-	uint32_t IP;
-
-	// User
-
-	struct
-	{
-		uint32_t Run : 2;
-		uint32_t Reserved_0_29 : 30;
-	} SPU_RunCntl;
-
-	uint32_t SPU_Status;
-
-	struct
-	{
-		uint32_t InterruptEnable : 1;
-		uint32_t Reserved_30 : 1;
-		uint32_t LocalStorageAddress : 30;
-	} SPU_NPC;
-
-
-	// Privileged
-	uint64_t SPU_PrivCntl;
-	static const uint64_t SPU_LSLR = 0x000000000003ffff;
-};
-
-#define GPR_PREF_SLOT 3
-
-#define SPU_GPR_MASK 	0x000000000000007F
-#define SPU_I7_MASK 	0x000000000000007F
-#define SPU_I10_MASK 	0x00000000000003ff
-#define SPU_I16_MASK 	0x000000000000ffff
-#define SPU_I18_MASK 	0x000000000003ffff
+//#define GPR_PREF_SLOT 3
+//
+//#define SPU_GPR_MASK 	0x000000000000007F
+//#define SPU_I7_MASK 	0x000000000000007F
+//#define SPU_I10_MASK 	0x00000000000003ff
+//#define SPU_I16_MASK 	0x000000000000ffff
+//#define SPU_I18_MASK 	0x000000000003ffff
 
 
 __inline int64_t SignExtend( int64_t t, size_t Bits )
@@ -110,8 +110,8 @@ __inline int64_t SignExtend( int64_t t, size_t Bits )
 }
 
 //uint32_t spu_assemble_one_text( SPU_t* targetSPU, const char* instr );
-void spu_parse_file( SPU_t* targetSPU, const char* path );
+//void spu_parse_file( SPU_t* targetSPU, const char* path );
 //void spu_extecute_single( SPU_t* SPU, uint32_t i );
-void spu_execute( SPU_t* SPU );
+//void spu_execute( SPU_t* SPU );
 
 #endif

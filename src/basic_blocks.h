@@ -3,6 +3,15 @@
 
 #include <vector>
 #include <map>
+#include <string>
+#include <cstdint>
+
+struct SPU_ExecutableInfo
+{
+	std::vector<uint32_t>	Binary;
+	std::map<std::string, size_t> OPDistrib;
+	std::vector<uint32_t>	OPFlags;
+};
 
 namespace spu
 {
@@ -17,22 +26,25 @@ namespace spu
 		size_t end;
 	};
 
-	struct function_t
-	{
-		std::vector<basic_block_t> blocks;
-	};
+// 	struct function_t
+// 	{
+// 		//std::vector<basic_block_t> blocks;
+// 	};
 
 	/*vector<pair<size_t, size_t>> BuildInitialBlocks( 
 	vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex );*/
 
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
-		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t VirtualBase, size_t EntryIndex );
+		vector<uint32_t>& Binary, 
+		op_distrib_t& Distrib, 
+		size_t VirtualBase, 
+		size_t EntryIndex );
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary );
 
-	vector<uint64_t> BuildOPFlags( const vector<uint32_t>& Binary, op_distrib_t& Distrib );
+	vector<uint64_t> BuildOPFlags( 
+		const vector<uint32_t>& Binary, 
+		op_distrib_t& Distrib );
 }
-
-
 
 #endif

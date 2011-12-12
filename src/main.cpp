@@ -1,130 +1,3 @@
-//#include <iostream>
-//#include <string>
-//#include <algorithm>
-//#include <sstream>
-//#include <fstream>
-//#include <cassert>
-//#include <vector>
-//#include <regex>
-//#include <string>
-//#define WIN32_LEAN_AND_MEAN
-//#include <Windows.h>
-//
-//#include "spu_emu.h"
-//#include "spu_unittest.h"
-////
-//#include "spu_internals_x86.h"
-
-//uint32_t spu_assemble( const std::string& istr_text_raw );
-//std::string spu_disassemble( uint32_t instr_raw );
-
-//template <class FieldT>
-//void print_GPR( SPU_t* SPU, size_t offset, size_t count, std::ostream& out = std::cout )
-//{
-//	if ( offset + count > 128 )
-//	{
-//		out << "print_GPR error: offset + count greater than 127" << std::endl;
-//		return;
-//	}
-//
-//	const size_t FieldSize = sizeof(FieldT);
-//	const size_t FieldCount = sizeof(GPR_t) / FieldSize;
-//	//const char SignedDigitMaxCntLTB[] = { 0, 4, 6, 0, 11, 0, 0, 0, 21 };
-//
-//	for ( size_t i = offset; i < offset + count; ++i )
-//	{
-//		out << "GPR";
-//		out.width( 3 );
-//		out.fill( '0' );
-//		out << i << ": [ ";
-//		out.fill( ' ' );
-//
-//		const FieldT* fp = (FieldT*)&SPU->GPR[i] + FieldCount - 1;
-//		for ( int j = 0; j < FieldCount; ++j, --fp ) 
-//		{
-//			out.width( std::numeric_limits<FieldT>::max_digits10 );
-//
-//			out << *fp;
-//
-//			if ( 0 != j )
-//				out << ", ";
-//		}
-//
-//		out << " ]" << std::endl;
-//	}	
-//}
-//
-//
-//std::string XMMToHexString( __m128 xmm )
-//{
-//	std::string res;
-//	res += "[ ";
-//	for ( ptrdiff_t j = 15; j >= 0; --j ) 
-//	{
-//		res += "0123456789ABCDEF"[0xF & (xmm.m128_u8[j] >> 4)];
-//		res += "0123456789ABCDEF"[0xF & xmm.m128_u8[j]];
-//		res += " ";
-//	}
-//	res += "]";
-//
-//	return res;
-//}
-//
-//void print_GPR_hex( SPU_t* SPU, size_t offset, size_t count, std::ostream& dump = std::cout )
-//{
-//	const size_t offset_end = offset + count;
-//
-//	std::ostringstream out;
-//
-//	if ( offset_end <= 128 )
-//	{
-//		for ( size_t i = offset; i < offset_end; ++i )
-//		{
-//			out << "GPR";
-//			out.width( 3 );
-//			out.fill( '0' );
-//			out << i << ": ";
-//			
-//			out << XMMToHexString( SPU->GPR[i] );
-//			
-//			out << std::endl;
-//		}
-//	}
-//	else
-//	{
-//		out << "print_GPR error: offset + count greater than 127" << std::endl;
-//	}		
-//
-//	dump << out.str();
-//}
-
-
-//struct FileWatch
-//{
-//	HANDLE hFile;
-//	FILETIME LastWriteTime;
-//
-//	FileWatch( TCHAR* path )
-//	{
-//		hFile = CreateFile( path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr );
-//		GetFileTime( hFile, nullptr, nullptr, &LastWriteTime );
-//	}
-//
-//	~FileWatch()
-//	{
-//		CloseHandle(hFile);
-//	}
-//
-//	bool IsDirty()
-//	{
-//		FILETIME Temp;
-//		GetFileTime( hFile, nullptr, nullptr, &Temp );
-//		LONG res = CompareFileTime( &LastWriteTime, &Temp );
-//		LastWriteTime = Temp;
-//		return res == -1;
-//	}
-//};
-
 //
 //struct node_t
 //{
@@ -326,6 +199,9 @@
 #include <intrin.h>
 #include <string>
 #include <fstream>
+#include <sstream>
+#include "spu_idb.h"
+#include "elf.h"
 #include "raw.h"
 #include "elf_helper.h"
 #include "basic_blocks.h"
@@ -366,29 +242,48 @@ using namespace std;
 //
 //}
 
-#include <regex>
-#include <algorithm>
-#include <Windows.h>
+//#include <regex>
+//#include <algorithm>
+//#include <Windows.h>
 
-map<string, vector<string>> Calls;
+//map<string, vector<string>> Calls;
+//
+//void f(const string& FnName, size_t IndentDepth, ostream& out)
+//{
+//	auto& FnList = Calls[FnName];
+//
+//	const string Indent(IndentDepth, ' ');
+//
+//	for ( size_t i = 0; i < FnList.size(); ++i )
+//	{
+//		out << Indent << FnList[i] << endl;
+//		if ( FnList[i] != FnName ) 
+//			f( FnList[i], IndentDepth + 1, out );
+//	}
+//}
 
-void f(const string& FnName, size_t IndentDepth, ostream& out)
-{
-	auto& FnList = Calls[FnName];
-
-	const string Indent(IndentDepth, ' ');
-
-	for ( size_t i = 0; i < FnList.size(); ++i )
-	{
-		out << Indent << FnList[i] << endl;
-		if ( FnList[i] != FnName ) 
-			f( FnList[i], IndentDepth + 1, out );
-	}
-}
-
+template<class Container, class Formatter> 
+void ConsoleDisplay( Container C, Formatter F );
 
 int main( int /*argc*/, char** /*argv*/ )
 {
+	/*memmap_t* metldr = mmopen("D:\\Downloads\\fail0verflow_ps3tools_win32_\\NOR\\asecure_loader\\metldr");
+	unsigned char* buf = new unsigned char[mmsize(metldr)];
+	memmap_t* metldr_key = mmopen("C:\\Users\\Grupos\\ps3keys\\ldr-key-retail");
+
+	AES_KEY key;
+	AES_set_decrypt_key((const unsigned char*)mmbegin(metldr_key),mmsize(metldr_key)*8, &key);
+
+	for ( size_t i = 0; i < (mmsize(metldr)/16);++i)
+	{
+	AES_decrypt((const unsigned char*)mmbegin(metldr) + (16*i), buf + (16*i), &key);
+	}
+
+
+
+	ofstream off("mt", ios::binary | ios::out );
+	off.write( (const char*)buf, mmsize(metldr));*/
+
 	/*ifstream iff("D:\\PS3\\spe_reg.txt");
 	ofstream off("D:\\PS3\\spe_reg.dump");
 
@@ -450,17 +345,16 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	f(Calls.begin()->first, 0, off);*/
 
-
 	vector<uint8_t> ELFFile;
 	{
-		//memmap_t* ELFFileMapped = open( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );
-		memmap_t* ELFFileMapped = open( "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf" );
+		//memmap_t* ELFFileMapped = mmopen( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );//aim_spu_module
+		memmap_t* ELFFileMapped = mmopen( "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\aim_spu_module.elf" );
 
-		ELFFile.resize( size(ELFFileMapped) );
+		ELFFile.resize( mmsize(ELFFileMapped) );
 
-		copy( (uint8_t*)begin(ELFFileMapped), (uint8_t*)end(ELFFileMapped), ELFFile.begin() );
+		memcpy( ELFFile.data(), mmbegin(ELFFileMapped), mmsize(ELFFileMapped) );
 
-		close(ELFFileMapped);
+		mmclose(ELFFileMapped);
 	}
 	{
 		if ( ELFFile.empty() )
@@ -472,7 +366,33 @@ int main( int /*argc*/, char** /*argv*/ )
 	vector<size_t> SPUELFOffsets;
 	{
 		SPUELFOffsets = elf::EnumEmbeddedSPUOffsets( ELFFile );
-	}	
+	}
+
+	for_each( SPUELFOffsets.begin(), SPUELFOffsets.end(),
+		[&ELFFile](size_t Offset)
+	{
+		ostringstream oss;
+		oss << "spu" << hex << setw(8) << Offset << ".elf";
+
+		ofstream ofs(oss.str().c_str(), ios::out | ios::binary);
+		
+		const uint8_t* b = ELFFile.data() + Offset;
+		const Elf32_Ehdr* eh = (Elf32_Ehdr*)b;
+		const uint8_t* e = b;
+		if ( _byteswap_ushort(eh->e_shnum) )
+		{
+			e = b + _byteswap_ulong(eh->e_shoff) + (_byteswap_ushort(eh->e_shnum) * _byteswap_ushort(eh->e_shentsize));
+
+		}
+		else
+		{
+			Elf32_Phdr* LastPH = (Elf32_Phdr*)(b + _byteswap_ulong(eh->e_phoff));
+			LastPH += _byteswap_ushort(eh->e_phnum) - 1;
+			e = b + _byteswap_ulong(LastPH->p_offset) + (_byteswap_ulong(LastPH->p_filesz));
+		}		
+
+		ofs.write((const char*)b, e-b);
+	});
 
 	vector<uint32_t> SPUBinary;
 	size_t EntryIndex = 0;
@@ -490,55 +410,46 @@ int main( int /*argc*/, char** /*argv*/ )
 		EntryIndex = elf::EntryPointIndex( SPU0 );
 	}
 
-	spu::op_distrib_t Distrib;
+	spu::op_distrib_t OPDistrib;
 	{
-		Distrib = spu::GatherOPDistribution( SPUBinary );
+		OPDistrib = spu::GatherOPDistribution( SPUBinary );
+	}
+
+	vector<uint64_t> OPFlags;
+	{
+		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+	}
+
+	vector<spu::basic_block_t> bb;
+	{
+		size_t lead = 0;
+		size_t term = 0;
+
+		for ( size_t i = 0; i < SPUBinary.size(); ++i )
+		{
+			if ( OPFlags[i] & BB_TERM )
+			{
+				spu::basic_block_t block = { lead, i + 1 };
+				lead = i + 1;
+				bb.push_back(block);
+				continue;
+			}
+			else if ( OPFlags[i] & BB_LEAD )
+			{
+				spu::basic_block_t block = { lead, i };
+				lead = i;
+				bb.push_back(block);
+				continue;
+			}
+		}
 	}
 	
-	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, Distrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
+	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
 
-	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
+	spu::MakeSPUSrcFile( SPUBinary, FnRanges, OPFlags, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 
-	
-	/*std::ifstream fin("temp_ppc_ilist_raw.txt");
-	std::ofstream fout("ppc_ilist.h");
-
-	if (fin.is_open() && fout.is_open())
-	{
-		std::string line;
-		
-		while (std::getline(fin, line))
-		{
-			std::istringstream is(line);
-
-			std::string ifmt, op, xop, mode, page, mnem;
-
-			is >> ifmt >> op;
-
-			if ( ifmt != "D" && ifmt != "B" && ifmt != "SC" && ifmt != "I" && ifmt != "M" )
-			{
-				is >> xop;
-			}
-			else
-			{
-				xop = "-1";
-			}
-
-			is >> mode >> page >> mnem;
-
-			if ( !page.empty() && isalpha(page[0]) )
-			{
-				mnem = page;
-				page = mode;
-				mode.clear();
-}
-
-fout << "DEFINST( \"" << mnem.substr( 0, mnem.find('[')) << "\",\t IFORM_" 
-	<< ifmt << ",\t " << op << ", " << xop << " )" << std::endl;
-		}
-	}*/
-
+	//ConsoleDisplay( SPUBinary, [](uint32_t i){ cout << hex << setw(8) << i << endl;} );
 	
 
 	//void ClearScreen();
@@ -596,40 +507,3 @@ fout << "DEFINST( \"" << mnem.substr( 0, mnem.find('[')) << "\",\t IFORM_"
 
 	return 0;
 }
-
-//void ClearScreen()
-//{
-//	HANDLE                     hStdOut;
-//	CONSOLE_SCREEN_BUFFER_INFO csbi;
-//	DWORD                      count;
-//	DWORD                      cellCount;
-//	COORD                      homeCoords = { 0, 0 };
-//
-//	hStdOut = GetStdHandle( STD_OUTPUT_HANDLE );
-//	if (hStdOut == INVALID_HANDLE_VALUE) return;
-//
-//	/* Get the number of cells in the current buffer */
-//	if (!GetConsoleScreenBufferInfo( hStdOut, &csbi )) return;
-//	cellCount = csbi.dwSize.X *csbi.dwSize.Y;
-//
-//	/* Fill the entire buffer with spaces */
-//	if (!FillConsoleOutputCharacter(
-//		hStdOut,
-//		(TCHAR) ' ',
-//		cellCount,
-//		homeCoords,
-//		&count
-//		)) return;
-//
-//	/* Fill the entire buffer with the current colors and attributes */
-//	if (!FillConsoleOutputAttribute(
-//		hStdOut,
-//		csbi.wAttributes,
-//		cellCount,
-//		homeCoords,
-//		&count
-//		)) return;
-//
-//	/* Move the cursor home */
-//	SetConsoleCursorPosition( hStdOut, homeCoords );
-//}

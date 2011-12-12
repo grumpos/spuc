@@ -1067,11 +1067,11 @@ typedef struct
 /* Macro to construct move records.  */
 #define ELF32_M_SYM(info)	((info) >> 8)
 #define ELF32_M_SIZE(info)	((unsigned char) (info))
-#define ELF32_M_INFO(sym, size)	(((sym) << 8) + (unsigned char) (size))
+#define ELF32_M_INFO(sym, mmsize)	(((sym) << 8) + (unsigned char) (mmsize))
 
 #define ELF64_M_SYM(info)	ELF32_M_SYM (info)
 #define ELF64_M_SIZE(info)	ELF32_M_SIZE (info)
-#define ELF64_M_INFO(sym, size)	ELF32_M_INFO (sym, size)
+#define ELF64_M_INFO(sym, mmsize)	ELF32_M_INFO (sym, mmsize)
 
 
 /* Motorola 68k specific definitions.  */
@@ -1422,7 +1422,7 @@ typedef struct
 {
   unsigned char kind;		/* Determines interpretation of the
 				   variable part of descriptor.  */
-  unsigned char size;		/* Size of descriptor, including header.  */
+  unsigned char mmsize;		/* Size of descriptor, including header.  */
   Elf32_Section section;	/* Section header index of section affected,
 				   0 for global options.  */
   Elf32_Word info;		/* Kind-specific information.  */

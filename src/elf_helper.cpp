@@ -78,7 +78,7 @@ namespace elf
 				{
 					ELFOffsets.push_back( b - (const uint8_t*)Data.data() );
 
-					b += _byteswap_ulong(eh->e_shoff) + (_byteswap_ulong(eh->e_shnum) * _byteswap_ulong(eh->e_shentsize));
+					b += 1;//_byteswap_ulong(eh->e_shoff) + (_byteswap_ulong(eh->e_shnum) * _byteswap_ulong(eh->e_shentsize));
 				}
 			}			
 
@@ -268,7 +268,7 @@ namespace elf
 						{
 							if ( (SH.sh_type & SHT_PROGBITS) && (SH.sh_size) && (SH.sh_flags & SHF_EXECINSTR) )
 							{
-								size_t NextEntry = Binary.size();
+								//size_t NextEntry = Binary.size();
 
 								Binary.resize( (SH.sh_addr - BaseAddr + SH.sh_size)/4, 0 );
 
@@ -312,7 +312,7 @@ namespace elf
 			assert( LS );
 			assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
 
-			const _32_traits_t::header_type* h = (const _32_traits_t::header_type*)ELF;
+			//const _32_traits_t::header_type* h = (const _32_traits_t::header_type*)ELF;
 
 			for ( _32_traits_t::pheader_type* p = ELF32_PH_BEGIN; p != ELF32_PH_END; ++p )
 			{
