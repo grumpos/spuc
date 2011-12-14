@@ -349,6 +349,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	{
 		//memmap_t* ELFFileMapped = mmopen( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );//aim_spu_module
 		memmap_t* ELFFileMapped = mmopen( "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\aim_spu_module.elf" );
+		//memmap_t* ELFFileMapped = mmopen( "D:\\cell\\host-win32\\spu\\bin\\a.out" );
 
 		ELFFile.resize( mmsize(ELFFileMapped) );
 
@@ -420,7 +421,7 @@ int main( int /*argc*/, char** /*argv*/ )
 		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
 	}
 
-	vector<spu::basic_block_t> bb;
+	/*vector<spu::basic_block_t> bb;
 	{
 		size_t lead = 0;
 		size_t term = 0;
@@ -442,9 +443,14 @@ int main( int /*argc*/, char** /*argv*/ )
 				continue;
 			}
 		}
-	}
+	}*/
+
+	vector<uint32_t> LS(0x40000);
+	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
 	
-	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
+	auto FnRanges = spu::BuildInitialBlocks( LS, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
+
+	
 
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, OPFlags, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );

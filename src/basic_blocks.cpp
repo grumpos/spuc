@@ -47,7 +47,9 @@ namespace spu
 
 		bool IsWithinLSSize = addr < 0x3FFFF;
 
-		return IsWithinLSSize && Is8ByteAligned;
+		bool NonZero = 0 != addr;
+
+		return IsWithinLSSize && Is8ByteAligned && NonZero;
 	}
 
 	
@@ -96,11 +98,32 @@ namespace spu
 			return CurrentOP + 2;
 	}
 
+	bool PossibleCtorDtorList( size_t start, const vector<uint32_t>& Binary );
+	bool PossibleShufbMask( void* start );
+
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
 
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
 		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t /*VirtualBase*/, size_t EntryIndex )
 	{	
+		vector<size_t> PossCtor;
+		{
+			size_t i = 0;
+			for_each( Binary.begin(), Binary.end()-4, 
+				[&]( uint32_t val )
+			{
+				if ( true == PossibleShufbMask( &Binary[i] ) && 0 == i%4 )
+				{
+					PossCtor.push_back( i );
+					
+				}
+				++i;
+			});
+
+		}
+
+
+
 		vector<uint32_t> PossibleFEP;
 		{
 			for_each( Binary.begin(), Binary.end(), 
@@ -486,19 +509,92 @@ namespace spu
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
 	{
 		// TODO: make op_distrib_t use 11 bit integer indexing and a fixed array
+		size_t count = 0;
 		op_distrib_t Distrib;
 		{
 			size_t index = 0;
 
 			for_each( Binary.cbegin(), Binary.cend(),
-				[&Distrib, &index](uint32_t Instr)
+				[&Distrib, &index, &count](uint32_t Instr)
 			{		
+				++count;
 				Distrib[spu_decode_op_mnemonic(Instr)].push_back(index++);
 			});
 		}	
 
 		return Distrib;
 	}
+
+	bool PossibleCtorDtorList( size_t start, const vector<uint32_t>& Binary )
+	{
+		// align: 16 byte
+		// format: FFFFFFFF, n x fptr, 0, FFFFFFFF, m x fptr, 0
+
+		if ( 0xFFFFFFFF != Binary[start++] )
+			return false;
+		
+		// size - 1 because the minimal ctor is {0xFFFFFFFF, 0}
+		while ( start < (Binary.size() - 1) && IsValidFEPAddr(Binary[start]) )
+		{
+			++start;
+		}
+
+		if ( 0 == Binary[start] && start < (Binary.size() - 1)  )
+			return true;
+
+		return false;
+	}
+
+	bool PossibleShufbMask( void* start )
+	{
+		// align: 16 byte
+		// each byte b: 0<b<=0x1f | b == {0x80|0xC0|0xE0}
+
+		// special case all 0 not handled here
+		if ( 0 == ((uint32_t*)start)[0] && 
+			0 == ((uint32_t*)start)[1] && 
+			0 == ((uint32_t*)start)[2] && 
+			0 == ((uint32_t*)start)[3] )
+			return false;
+
+		for ( size_t i = 0; i < 16; ++i )
+		{
+			const uint8_t b = ((uint8_t*)start)[i];
+
+			if (0 <= b && b <= 0x1F)
+				continue;
+			else if ( 0x80 == b )
+				continue;
+			else if ( 0xC0 == b )
+				continue;
+			else if ( 0xE0 == b )
+				continue;
+			else
+				return false;
+		}
+
+		return true;
+	}
+
+	bool PossibleString( void* start )
+	{
+		// align: 16 byte
+		// ends with padding of 0s. padding must reach the end of the 
+		// last used 16 byte block. if the string length is multiple of
+		// 16, a padding of 16 zero bytes will follow.
+		/* how to tell if it's text? technically there are no constraints here.
+		   we can tell for sure if everything is between 0x20 and 0x7F
+		   also if it's declared as const char*, there is usually a 0x0A terminator for nl
+		*/
+		return false;
+	}
+
+	/*
+	Also try and build an extensive list of named data patterns:
+	inserter shufb
+	reorder shufb
+	AES matrices
+	*/
 
 	vector<uint64_t> BuildOPFlags( const vector<uint32_t>& Binary, op_distrib_t& Distrib )
 	{
