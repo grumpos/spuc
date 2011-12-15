@@ -1,39 +1,3 @@
-//#include <algorithm>
-//#include <cassert>
-//#include <cstdlib>
-//#include <fstream>
-//#include <iostream>
-//#include <iomanip>
-//#include <iterator>
-//#include <list>
-//#include <sstream>
-//#include <string>
-//#include <vector>
-//#include <map>
-//#include <set>
-////#include "spu_internals_x86.h"
-//#include "raw.h"
-//#include "spu_emu.h"
-//#include "spu_idb.h"
-//#include "spu_pseudo.h"
-//#include "elf_helper.h"
-//
-//using std::string;
-//using std::vector;
-//
-//enum
-//{
-//	MASK_IGNORED = 0xFFFFFFFF,
-//	MASK_RETURN = 0xEEEEEEEE,
-//	MASK_NOP = 0xDDDDDDDD,
-//	MASK_STOP = 0xCCCCCCCC,
-//	MASK_START = 0xBBBBBBBB
-//};
-//
-//
-//
-//
-//
 
 //
 ///*
@@ -167,29 +131,6 @@
 //
 //
 //
-//	
-//template<class Pred>
-//basic_block_t FindBasicBlock( size_t begin, size_t end, const spu_program_t* program, Pred IsBrach )
-//{
-//	basic_block_t NewBlock;
-//	NewBlock.first = begin;
-//
-//	while ( begin != end && !IsBrach(program->Binary[begin]) )
-//	{
-//		++begin;
-//	}
-//
-//	if ( begin != end )
-//	{
-//		NewBlock.last = ++begin;
-//	}
-//	else
-//	{
-//		NewBlock.first = NewBlock.last = 0;
-//	}
-//
-//	return NewBlock;
-//};
 //
 //struct pflow_node_t
 //{
@@ -599,49 +540,6 @@
 //	} );
 //}
 //
-//
-//
-//#include <intrin.h>
-//
-//void spu_execute( SPU_t* )
-//{	
-//	//GPR(6) = si_ila(0x0003ffd0/*262096*/);
-//	//// HINT: hbrr PC + 0x00000017/*23*/, PC + 0xffffffe7/*-25*/;
-//	//GPR(12) = si_ila(0x00010203/*66051*/);
-//	//GPR(7) = si_fsmbi(0x00000f00/*3840*/);
-//	//GPR(18) = si_ai(GPR(6),0x00000020/*32*/);
-//	//GPR(81) = si_shlqbyi(GPR(3),0x00000000/*0*/);
-//	//GPR(15) = si_ila(0x00038f80/*233344*/);
-//	//GPR(80) = si_shlqbyi(GPR(4),0x00000000/*0*/);
-//	//GPR(16) = si_il(0x00000000/*0*/);
-//	//si_stqd(GPR(18),GPR(6),0x00000000/*0*/);
-//	//GPR(8) = si_sf(GPR(15),GPR(6));
-//	//GPR(14) = si_lqr(0x000011f9/*4601*/);
-//	//si_stqr(GPR(16),0xfffff3d4/*-3116*/);
-//	//GPR(1) = si_selb(GPR(6),GPR(8),GPR(7));
-//	//GPR(13) = si_ai(GPR(1),0x00000030/*48*/);
-//	//GPR(11) = si_rotqbyi(GPR(14),0x00000004/*4*/);
-//	//si_stqr(GPR(13),0x0000117c/*4476*/);
-//	//GPR(10) = si_shufb(GPR(11),GPR(11),GPR(12));
-//	//GPR(3) = si_ai(GPR(10),0xffffffd0/*-48*/);
-//	//GPR(9) = si_clgt(GPR(8),GPR(3));
-//	//GPR(4) = si_clgti(GPR(3),0x00000000/*0*/);
-//	//GPR(2) = si_and(GPR(9),GPR(4));
-//	//GPR(5) = si_selb(GPR(8),GPR(3),GPR(2));
-//	//GPR(1) = si_selb(GPR(6),GPR(5),GPR(7));
-//	//CALL_REL(0xffffffd0/*-48*/);
-//	//GPR(4) = si_ori(GPR(80),0x00000000/*0*/);
-//	//GPR(3) = si_ori(GPR(81),0x00000000/*0*/);
-//	//CALL_REL(0x00000119/*281*/);
-//	//CALL_REL(0x000006da/*1754*/);
-//	
-//	memmap_t* bearelf = open("D:\\Torrents\\BLES00945\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf");
-//	//memmap_t* bearelf = open("D:\\Dev\\segata-crossedgeu\\BLUS30348\\PS3_GAME\\USRDIR\\eboot.elf");
-//	
-//	string fraw;
-//	fraw.resize(size(bearelf));
-//	memcpy( &fraw[0], begin(bearelf), size(bearelf) );
-//	close(bearelf);
 //	
 //
 //

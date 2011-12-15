@@ -194,6 +194,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <iterator>
 #include <iomanip>
 #include <intrin.h>
@@ -261,6 +262,54 @@ using namespace std;
 //			f( FnList[i], IndentDepth + 1, out );
 //	}
 //}
+
+void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
+	size_t VirtBase )
+{	
+	auto GatherAbsAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
+	{
+		const auto& AbsMemOPs = OPDistrib[mnem];
+		//auto program_local = Binary;
+
+		std::transform( 
+			AbsMemOPs.begin(), AbsMemOPs.end(), 
+			std::inserter(Addresses, Addresses.end()), 
+			[&]( size_t Offset )->uint32_t
+		{
+			const uint32_t LSLR = 0x3ffff & -16;
+
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
+
+			return ((uint32_t)OPComponents.IMM << 2) & LSLR;
+		});
+	};
+
+	auto GatherRelAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
+	{
+		const auto& RelMemOPs = OPDistrib[mnem];
+		//auto program_local = program;
+
+		std::transform( RelMemOPs.begin(), RelMemOPs.end(), std::inserter(Addresses, Addresses.end()), 
+			[&]( size_t Offset )->uint32_t
+		{
+			const uint32_t LSLR = 0x3ffff & -16;
+
+			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
+
+			return (VirtBase + (Offset*4) + ((int32_t)OPComponents.IMM << 2)) & LSLR;
+		});
+	};
+
+	std::set<uint32_t> AbsLoadTargets;
+	std::set<uint32_t> RelLoadTargets;
+	std::set<uint32_t> AbsStoreTargets;
+	std::set<uint32_t> RelStoreTargets;
+
+	GatherAbsAddresses( "lqa", AbsLoadTargets );
+	GatherRelAddresses( "lqr", RelLoadTargets );
+	GatherAbsAddresses( "stqa", AbsStoreTargets );
+	GatherRelAddresses( "stqr", RelStoreTargets );
+}
 
 template<class Container, class Formatter> 
 void ConsoleDisplay( Container C, Formatter F );
@@ -415,6 +464,8 @@ int main( int /*argc*/, char** /*argv*/ )
 	{
 		OPDistrib = spu::GatherOPDistribution( SPUBinary );
 	}
+
+	spuGatherLoads( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0) );
 
 	vector<uint64_t> OPFlags;
 	{
