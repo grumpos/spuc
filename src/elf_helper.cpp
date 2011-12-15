@@ -14,6 +14,8 @@
 #include "elf_helper.h"
 
 
+
+
 namespace elf
 {
 	struct _32_traits_t
@@ -255,31 +257,31 @@ namespace elf
 
 				vector<uint32_t> Binary;
 
-				if ( h->e_shnum )
-				{
-					while ( sh_b != sh_e && !(sh_b->sh_flags & SHF_EXECINSTR) )
-						++sh_b;
-
-					if ( sh_b != sh_e )
-					{
-						const size_t BaseAddr = sh_b->sh_addr;
-
-						std::for_each( sh_b, sh_e, [&](_32_traits_t::sheader_type SH)
-						{
-							if ( (SH.sh_type & SHT_PROGBITS) && (SH.sh_size) && (SH.sh_flags & SHF_EXECINSTR) )
-							{
-								//size_t NextEntry = Binary.size();
-
-								Binary.resize( (SH.sh_addr - BaseAddr + SH.sh_size)/4, 0 );
-
-								const uint32_t* b = (uint32_t*)((uint8_t*)ELF + SH.sh_offset);
-
-								memcpy( &Binary[(SH.sh_addr - BaseAddr)/4], b, SH.sh_size );
-							}
-						} );
-					}
-				}
-				else
+// 				if ( h->e_shnum )
+// 				{
+// 					while ( sh_b != sh_e && !(sh_b->sh_flags & SHF_EXECINSTR) )
+// 						++sh_b;
+// 
+// 					if ( sh_b != sh_e )
+// 					{
+// 						const size_t BaseAddr = sh_b->sh_addr;
+// 
+// 						std::for_each( sh_b, sh_e, [&](_32_traits_t::sheader_type SH)
+// 						{
+// 							if ( (SH.sh_type & SHT_PROGBITS) && (SH.sh_size) && (SH.sh_flags & SHF_EXECINSTR) )
+// 							{
+// 								//size_t NextEntry = Binary.size();
+// 
+// 								Binary.resize( (SH.sh_addr - BaseAddr + SH.sh_size)/4, 0 );
+// 
+// 								const uint32_t* b = (uint32_t*)((uint8_t*)ELF + SH.sh_offset);
+// 
+// 								memcpy( &Binary[(SH.sh_addr - BaseAddr)/4], b, SH.sh_size );
+// 							}
+// 						} );
+// 					}
+// 				}
+// 				else
 				{
 					std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
 					{

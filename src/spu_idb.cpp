@@ -496,7 +496,7 @@ size_t spu_decode_op_opcode( uint32_t op )
 		return op & 0x7FC;
 	else if ( SPU_OP_TYPE_RI18 == type_tbl[op & 0x7FE] ) 
 		return op & 0x7FE;
-	else if ( -1 == type_tbl[op] )
+	else
 		return 0x7FF;
 
 	return op;

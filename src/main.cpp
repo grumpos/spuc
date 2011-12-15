@@ -466,10 +466,21 @@ int main( int /*argc*/, char** /*argv*/ )
 	}
 
 	spuGatherLoads( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0) );
-
 	vector<uint64_t> OPFlags;
+// 	{
+// 		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+// 	}
+
+
+	// find first invalid op
+	size_t invalid = 0;
+	for ( size_t i = 0; i < SPUBinary.size(); ++i )
 	{
-		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+		if ( -1 == spu_decode_op_type( SPUBinary[i] ) )
+		{
+			invalid = 0x880 + i * 4;
+			break;
+		}
 	}
 
 	/*vector<spu::basic_block_t> bb;
