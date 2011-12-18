@@ -13,6 +13,7 @@
 #include <deque>
 #include <sstream>
 
+#include "tools.h"
 #include "spu_idb.h"
 #include "elf_helper.h"
 #include "spu_pseudo.h"
@@ -47,7 +48,7 @@ namespace spu
 
 		bool IsWithinLSSize = addr < 0x3FFFF;
 
-		bool NonZero = 0 != addr;
+		bool NonZero = true;//0 != addr;
 
 		return IsWithinLSSize && Is8ByteAligned && NonZero;
 	}
@@ -98,29 +99,29 @@ namespace spu
 			return CurrentOP + 2;
 	}
 
-	bool PossibleCtorDtorList( size_t start, const vector<uint32_t>& Binary );
-	bool PossibleShufbMask( void* start );
+	
+	
 
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
 
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
 		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t /*VirtualBase*/, size_t EntryIndex )
 	{	
-		vector<size_t> PossCtor;
-		{
-			size_t i = 0;
-			for_each( Binary.begin(), Binary.end()-4, 
-				[&]( uint32_t val )
-			{
-				if ( true == PossibleShufbMask( &Binary[i] ) && 0 == i%4 )
-				{
-					PossCtor.push_back( i );
-					
-				}
-				++i;
-			});
-
-		}
+// 		vector<size_t> PossCtor;
+// 		{
+// 			size_t i = 0;
+// 			for_each( Binary.begin(), Binary.end()-4, 
+// 				[&]( uint32_t val )
+// 			{
+// 				if ( true == PossibleShufbMask( &Binary[i] ) && 0 == i%4 )
+// 				{
+// 					PossCtor.push_back( i );
+// 					
+// 				}
+// 				++i;
+// 			});
+// 
+// 		}
 
 
 
@@ -509,15 +510,15 @@ namespace spu
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
 	{
 		// TODO: make op_distrib_t use 11 bit integer indexing and a fixed array
-		size_t count = 0;
+		size_t offset = 0;
 		op_distrib_t Distrib;
 		{
 			size_t index = 0;
 
 			for_each( Binary.cbegin(), Binary.cend(),
-				[&Distrib, &index, &count](uint32_t Instr)
+				[&Distrib, &index, &offset](uint32_t Instr)
 			{		
-				++count;
+				++offset;
 				Distrib[spu_decode_op_mnemonic(Instr)].push_back(index++);
 			});
 		}	
@@ -525,56 +526,9 @@ namespace spu
 		return Distrib;
 	}
 
-	bool PossibleCtorDtorList( size_t start, const vector<uint32_t>& Binary )
-	{
-		// align: 16 byte
-		// format: FFFFFFFF, n x fptr, 0, FFFFFFFF, m x fptr, 0
+	
 
-		if ( 0xFFFFFFFF != Binary[start++] )
-			return false;
-		
-		// size - 1 because the minimal ctor is {0xFFFFFFFF, 0}
-		while ( start < (Binary.size() - 1) && IsValidFEPAddr(Binary[start]) )
-		{
-			++start;
-		}
-
-		if ( 0 == Binary[start] && start < (Binary.size() - 1)  )
-			return true;
-
-		return false;
-	}
-
-	bool PossibleShufbMask( void* start )
-	{
-		// align: 16 byte
-		// each byte b: 0<b<=0x1f | b == {0x80|0xC0|0xE0}
-
-		// special case all 0 not handled here
-		if ( 0 == ((uint32_t*)start)[0] && 
-			0 == ((uint32_t*)start)[1] && 
-			0 == ((uint32_t*)start)[2] && 
-			0 == ((uint32_t*)start)[3] )
-			return false;
-
-		for ( size_t i = 0; i < 16; ++i )
-		{
-			const uint8_t b = ((uint8_t*)start)[i];
-
-			if (0 <= b && b <= 0x1F)
-				continue;
-			else if ( 0x80 == b )
-				continue;
-			else if ( 0xC0 == b )
-				continue;
-			else if ( 0xE0 == b )
-				continue;
-			else
-				return false;
-		}
-
-		return true;
-	}
+	
 
 	bool PossibleString( void* start )
 	{
@@ -703,3 +657,66 @@ namespace spu
 		return Flags;
 	}
 };
+
+bool PossibleShufbMask( void* start )
+{
+	// align: 16 byte
+	// each byte b: 0<b<=0x1f | b == {0x80|0xC0|0xE0}
+
+	const __m128i mask = _mm_loadu_si128( (__m128i*)start );
+
+	const __m128i allzero = 
+		_mm_cmpeq_epi8( mask, _mm_setzero_si128() );
+
+	if ( 0xFFFF == _mm_movemask_epi8(allzero) )
+		return false;
+
+	const __m128i is_80 = 
+		_mm_cmpeq_epi8( mask, _mm_set1_epi8(0x80) );
+	const __m128i is_E0 = 
+		_mm_cmpeq_epi8( mask, _mm_set1_epi8(0xE0) );
+	const __m128i is_C0 = 
+		_mm_cmpeq_epi8( mask, _mm_set1_epi8(0xC0) );
+	const __m128i is_gt_zero = 
+		_mm_cmpgt_epi8( mask, _mm_setzero_si128() );
+	const __m128i is_lt_20 = 
+		_mm_cmplt_epi8( mask, _mm_set1_epi8(0x20) );
+
+	const __m128i t0 = _mm_and_si128( is_gt_zero, is_lt_20 );
+	const __m128i t1 = _mm_or_si128( allzero, t0 );
+	const __m128i t2 = _mm_or_si128( is_C0, t1 );
+	const __m128i t3 = _mm_or_si128( is_E0, t2 );
+	const __m128i t4 = _mm_or_si128( is_80, t3 );
+
+	if ( 0xFFFF == _mm_movemask_epi8(t4) )
+		return true;
+	else
+		return false;
+}
+
+bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
+{
+	// align: 16 byte
+	// format: FFFFFFFF, n x fptr, FFFFFFFF, m x fptr
+	// pad with 0 for 16 byte boundary
+
+	if ( 0xFFFFFFFF != Binary[offset++] )
+		return false;
+
+	const uint32_t* val = &Binary[offset-1];
+
+	while ( offset < Binary.size() && 
+		( spu::IsValidFEPAddr(BE32(Binary[offset])) || 0 == Binary[offset]) )
+	{
+		++offset;
+	}
+
+	// hit dtor
+	if ( 0xFFFFFFFF != Binary[offset++] )
+		return false;
+
+// 	if ( 0 == Binary[start] && start < (Binary.size() - 1)  )
+// 		return true;
+
+	return true;
+}

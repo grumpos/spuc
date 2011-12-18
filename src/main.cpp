@@ -413,36 +413,36 @@ int main( int /*argc*/, char** /*argv*/ )
 		}
 	}
 
-	vector<size_t> SPUELFOffsets;
-	{
-		SPUELFOffsets = elf::EnumEmbeddedSPUOffsets( ELFFile );
-	}
+// 	vector<size_t> SPUELFOffsets;
+// 	{
+// 		SPUELFOffsets = elf::EnumEmbeddedSPUOffsets( ELFFile );
+// 	}
 
-	for_each( SPUELFOffsets.begin(), SPUELFOffsets.end(),
-		[&ELFFile](size_t Offset)
-	{
-		ostringstream oss;
-		oss << "spu" << hex << setw(8) << Offset << ".elf";
-
-		ofstream ofs(oss.str().c_str(), ios::out | ios::binary);
-		
-		const uint8_t* b = ELFFile.data() + Offset;
-		const Elf32_Ehdr* eh = (Elf32_Ehdr*)b;
-		const uint8_t* e = b;
-		if ( _byteswap_ushort(eh->e_shnum) )
-		{
-			e = b + _byteswap_ulong(eh->e_shoff) + (_byteswap_ushort(eh->e_shnum) * _byteswap_ushort(eh->e_shentsize));
-
-		}
-		else
-		{
-			Elf32_Phdr* LastPH = (Elf32_Phdr*)(b + _byteswap_ulong(eh->e_phoff));
-			LastPH += _byteswap_ushort(eh->e_phnum) - 1;
-			e = b + _byteswap_ulong(LastPH->p_offset) + (_byteswap_ulong(LastPH->p_filesz));
-		}		
-
-		ofs.write((const char*)b, e-b);
-	});
+// 	for_each( SPUELFOffsets.begin(), SPUELFOffsets.end(),
+// 		[&ELFFile](size_t Offset)
+// 	{
+// 		ostringstream oss;
+// 		oss << "spu" << hex << setw(8) << Offset << ".elf";
+// 
+// 		ofstream ofs(oss.str().c_str(), ios::out | ios::binary);
+// 		
+// 		const uint8_t* b = ELFFile.data() + Offset;
+// 		const Elf32_Ehdr* eh = (Elf32_Ehdr*)b;
+// 		const uint8_t* e = b;
+// 		if ( _byteswap_ushort(eh->e_shnum) )
+// 		{
+// 			e = b + _byteswap_ulong(eh->e_shoff) + (_byteswap_ushort(eh->e_shnum) * _byteswap_ushort(eh->e_shentsize));
+// 
+// 		}
+// 		else
+// 		{
+// 			Elf32_Phdr* LastPH = (Elf32_Phdr*)(b + _byteswap_ulong(eh->e_phoff));
+// 			LastPH += _byteswap_ushort(eh->e_phnum) - 1;
+// 			e = b + _byteswap_ulong(LastPH->p_offset) + (_byteswap_ulong(LastPH->p_filesz));
+// 		}		
+// 
+// 		ofs.write((const char*)b, e-b);
+// 	});
 
 	vector<uint32_t> SPUBinary;
 	size_t EntryIndex = 0;
@@ -460,17 +460,13 @@ int main( int /*argc*/, char** /*argv*/ )
 		EntryIndex = elf::EntryPointIndex( SPU0 );
 	}
 
-	spu::op_distrib_t OPDistrib;
-	{
-		OPDistrib = spu::GatherOPDistribution( SPUBinary );
-	}
+	
 
-	spuGatherLoads( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0) );
+	//spuGatherLoads( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0) );
 	vector<uint64_t> OPFlags;
-// 	{
-// 		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
-// 	}
 
+
+	spu_img_regions_t regs = elf::spu::ReadLoadRegions( SPU0 );
 
 	// find first invalid op
 	size_t invalid = 0;
@@ -478,39 +474,63 @@ int main( int /*argc*/, char** /*argv*/ )
 	{
 		if ( -1 == spu_decode_op_type( SPUBinary[i] ) )
 		{
-			invalid = 0x880 + i * 4;
+			invalid = i;
 			break;
 		}
 	}
 
-	/*vector<spu::basic_block_t> bb;
-	{
-		size_t lead = 0;
-		size_t term = 0;
+	//SPUBinary.resize( invalid );
 
-		for ( size_t i = 0; i < SPUBinary.size(); ++i )
+	spu::op_distrib_t OPDistrib;
+	{
+		OPDistrib = spu::GatherOPDistribution( SPUBinary );
+	}	
+
+	set<uint32_t> FnCallTargets;
+	{
+		auto& FnCalls = OPDistrib["brsl"];
+
+		for_each( FnCalls.begin(), FnCalls.end(), [&]
+		( uint32_t op )
 		{
-			if ( OPFlags[i] & BB_TERM )
+			const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
+
+			FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
+		} );
+	}
+
+	set<uint32_t> SHUFMasks;
+	{
+		for ( size_t i = 0; i < SPUBinary.size(); i += 4 )
+		{
+			if ( PossibleShufbMask(&SPUBinary[i]))
 			{
-				spu::basic_block_t block = { lead, i + 1 };
-				lead = i + 1;
-				bb.push_back(block);
-				continue;
-			}
-			else if ( OPFlags[i] & BB_LEAD )
-			{
-				spu::basic_block_t block = { lead, i };
-				lead = i;
-				bb.push_back(block);
-				continue;
+				SHUFMasks.insert( elf::VirtualBaseAddr(SPU0) + (4 * i) );
 			}
 		}
-	}*/
+	}
 
-	vector<uint32_t> LS(0x40000);
+	vector<uint32_t> LS(0x40000/4);
 	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
+
+	set<uint32_t> Ctors;
+	{
+		for ( size_t i = 0; i < LS.size(); i += 4 )
+		{
+			if ( PossibleCtorDtorList( i, LS ) )
+			{
+				Ctors.insert( elf::VirtualBaseAddr(SPU0) + (4 * i) );
+			}
+		}
+	}
+
+	int i = 3;
+
+
+
 	
-	auto FnRanges = spu::BuildInitialBlocks( LS, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
+	
+	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
 
 	
 

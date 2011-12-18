@@ -304,6 +304,29 @@ namespace elf
 			return vector<uint32_t>();
 		}
 
+		spu_img_regions_t ReadLoadRegions( const void* ELF  )
+		{
+			spu_img_regions_t res;
+
+			assert( ELF );
+			assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
+
+			_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;			
+
+			_32_traits_t::pheader_type* ph_b = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+			_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
+
+			std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
+			{
+				if ( PH.p_type & PT_LOAD )
+				{
+					res.push_back( make_pair( PH.p_vaddr, PH.p_vaddr + PH.p_memsz ) );
+				}
+			} );
+
+			return res;
+		}
+
 #define ELF32_HEADER	((_32_traits_t::header_type*)ELF)
 #define ELF32_PH_BEGIN	(_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff)
 #define ELF32_PH_END	((_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff) + ELF32_HEADER->e_phnum)

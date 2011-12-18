@@ -13,6 +13,9 @@ struct SPU_ExecutableInfo
 	std::vector<uint32_t>	OPFlags;
 };
 
+bool PossibleShufbMask( void* start );
+bool PossibleCtorDtorList( size_t start, const std::vector<uint32_t>& Binary );
+
 namespace spu
 {
 	using namespace std;
