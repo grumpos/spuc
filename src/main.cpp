@@ -153,7 +153,7 @@ int main( int argc, char** argv )
 
 	vector<uint8_t> ELFFile;
 	{
-		const std::string ModuleName = (argc > 1) ? argv[1] : "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\aim_spu_module.elf";
+		const std::string ModuleName = (argc > 1) ? argv[1] : "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf";
 		//memmap_t* ELFFileMapped = mmopen( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );//aim_spu_module
 		memmap_t* ELFFileMapped = mmopen( ModuleName.c_str() );
 		//memmap_t* ELFFileMapped = mmopen( "D:\\cell\\host-win32\\spu\\bin\\a.out" );
