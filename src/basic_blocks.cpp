@@ -107,37 +107,6 @@ namespace spu
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
 		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t /*VirtualBase*/, size_t EntryIndex )
 	{	
-// 		vector<size_t> PossCtor;
-// 		{
-// 			size_t i = 0;
-// 			for_each( Binary.begin(), Binary.end()-4, 
-// 				[&]( uint32_t val )
-// 			{
-// 				if ( true == PossibleShufbMask( &Binary[i] ) && 0 == i%4 )
-// 				{
-// 					PossCtor.push_back( i );
-// 					
-// 				}
-// 				++i;
-// 			});
-// 
-// 		}
-
-
-
-		vector<uint32_t> PossibleFEP;
-		{
-			for_each( Binary.begin(), Binary.end(), 
-				[&PossibleFEP]( uint32_t val )
-			{
-				if ( true == IsValidFEPAddr( val ) )
-				{
-					PossibleFEP.push_back( val );
-				}
-			});
-
-		}
-
 		set<size_t> InvalidJumps;
 		
 		set<size_t> FnEntryByStaticCall;
@@ -366,69 +335,6 @@ namespace spu
 
 			for_each( FnEntries.cbegin(), FnEntries.cend(), ParseFunctions );
 
-			//set<size_t> s0( DynFnEntries.cbegin(), DynFnEntries.cend() );			
-			//set<size_t> s1;
-			//set_difference( s0.begin(), s0.end(), FnEntries.begin(), FnEntries.end(), 
-			//	inserter( s1, s1.end() ) );
-
-			////for_each( s1.cbegin(), s1.cend(), ParseFunctions );
-
-
-			// 1st pass
-			//transform(
-			//	FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
-			//	back_inserter( FnRanges ),
-			//	[](size_t b, size_t e) -> range_t
-			//{
-			//	return make_pair( b, e );
-			//});
-
-			//set<size_t> JumpsToFnEntry;
-
-			//auto IsBranchToFn = [Binary, &JumpsToFnEntry](range_t r)
-			//{
-			//	size_t LastOPOffset = r.second-1;
-
-			//	if ( string("lnop") == spu_decode_op_mnemonic(Binary[LastOPOffset]) )
-			//		--LastOPOffset;
-
-			//	const uint32_t LastOP = Binary[LastOPOffset];
-
-			//	const SPU_OP_COMPONENTS OPC = spu_decode_op_components(LastOP);
-
-			//	if ( (string("br") == spu_decode_op_mnemonic(LastOP)) && (LastOPOffset + OPC.IMM < r.first) )
-			//	{
-			//		JumpsToFnEntry.insert(LastOPOffset + OPC.IMM);
-			//	}
-			//};
-
-			//set<size_t> NewEntrys;
-
-			//do 
-			//{
-			//	FnEntries.insert( NewEntrys.begin(), NewEntrys.end() );
-
-			//	FnRanges.clear();
-			//	JumpsToFnEntry.clear();
-			//	NewEntrys.clear();
-
-			//	transform(
-			//		FnEntries.cbegin(), --FnEntries.cend(), ++FnEntries.cbegin(),
-			//		back_inserter( FnRanges ),
-			//		[](size_t b, size_t e) -> range_t
-			//	{
-			//		return make_pair( b, e );
-			//	});
-
-			//	for_each( FnRanges.cbegin(), FnRanges.cend(), IsBranchToFn );
-
-			//	set_difference( 
-			//		JumpsToFnEntry.cbegin(), JumpsToFnEntry.cend(),
-			//		FnEntries.cbegin(), FnEntries.cend(), 
-			//		inserter(NewEntrys, NewEntrys.end() ) );
-
-			//} while ( !NewEntrys.empty() );
-
 
 			// turn jumps to function entries into brsl calls
 			{
@@ -526,35 +432,13 @@ namespace spu
 		return Distrib;
 	}
 
-	
-
-	
-
-	bool PossibleString( void* start )
-	{
-		// align: 16 byte
-		// ends with padding of 0s. padding must reach the end of the 
-		// last used 16 byte block. if the string length is multiple of
-		// 16, a padding of 16 zero bytes will follow.
-		/* how to tell if it's text? technically there are no constraints here.
-		   we can tell for sure if everything is between 0x20 and 0x7F
-		   also if it's declared as const char*, there is usually a 0x0A terminator for nl
-		*/
-		return false;
-	}
-
-	/*
-	Also try and build an extensive list of named data patterns:
-	inserter shufb
-	reorder shufb
-	AES matrices
-	*/
-
 	vector<uint64_t> BuildOPFlags( const vector<uint32_t>& Binary, op_distrib_t& Distrib )
 	{
 		vector<uint64_t> Flags;
 
 		Flags.resize( Binary.size() + 1 ); // +1 for the BB_LEAD flags to avoid checking for EOF
+
+		Flags[0] |= BB_LEAD;
 
 		auto& br = Distrib["br"];
 		for_each( br.begin(), br.end(), [&Flags, Binary](size_t Index)
@@ -703,11 +587,14 @@ bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
 	if ( 0xFFFFFFFF != Binary[offset++] )
 		return false;
 
+	std::vector<uint32_t> FnCalls;
+
 	const uint32_t* val = &Binary[offset-1];
 
 	while ( offset < Binary.size() && 
 		( spu::IsValidFEPAddr(BE32(Binary[offset])) || 0 == Binary[offset]) )
 	{
+		FnCalls.push_back( offset );
 		++offset;
 	}
 
@@ -715,8 +602,61 @@ bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
 	if ( 0xFFFFFFFF != Binary[offset++] )
 		return false;
 
-// 	if ( 0 == Binary[start] && start < (Binary.size() - 1)  )
-// 		return true;
+	while ( offset < Binary.size() && 
+		( spu::IsValidFEPAddr(BE32(Binary[offset])) && 0 != Binary[offset]) )
+	{
+		FnCalls.push_back( offset );
+		++offset;
+	}
+
+	if ( 0 == Binary[offset] )
+	{
+		// hit 0, check padding. 
+		// pads for 4 words
+		const size_t ZeroDelimIndex = offset % 4;
+
+		for ( size_t i = ZeroDelimIndex; i%4 != 0; ++i )
+		{
+			if ( Binary[offset++] != 0 ) 
+				return false;
+		}
+
+		int sdfasdf = 3;
+	}
+	else
+	{
+		if ( offset%4 != 0 ) 
+			return false;
+	}
 
 	return true;
+}
+
+bool ZeroPaddig16( const void* data )
+{
+	const __m128i	block = _mm_loadu_si128((__m128i*)data);
+
+	const __m128i	t0 = _mm_cmpeq_epi8( block, _mm_setzero_si128() );
+
+	// WARNING: inverted because endianness mismatch
+	const uint16_t	mask = ~(uint16_t)_mm_movemask_epi8(t0);
+
+	// don't care about all zero
+	if ( 0xFFFF == mask || 0 == mask )
+		return false;
+
+	return !((mask + 1) & mask);
+}
+
+bool PossibleString( size_t offset, const std::vector<uint32_t>& Binary )
+{
+	// align: 16 byte
+	// ends with padding of 0s. padding must reach the end of the 
+	// last used 16 byte block. if the string length is multiple of
+	// 16, a padding of 16 zero bytes will follow.
+	/* how to tell if it's text? technically there are no constraints here.
+		we can tell for sure if everything is between 0x20 and 0x7F
+		also if it's declared as const char*, there is usually a 0x0A terminator for nl
+	*/
+	return ZeroPaddig16( &Binary[offset] );
 }

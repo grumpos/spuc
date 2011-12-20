@@ -15,6 +15,7 @@ struct SPU_ExecutableInfo
 
 bool PossibleShufbMask( void* start );
 bool PossibleCtorDtorList( size_t start, const std::vector<uint32_t>& Binary );
+bool PossibleString( size_t offset, const std::vector<uint32_t>& Binary );
 
 namespace spu
 {

@@ -1,194 +1,3 @@
-//
-//struct node_t
-//{
-//	int data;
-//	node_t* next;
-//};
-//
-//void _slist_append( node_t* node, int val )
-//{
-//	node_t* n = new node_t;
-//	n->next = nullptr;
-//	n->data = val;
-//	node->next = n;
-//}
-//
-//node_t*  _slist_prepend( node_t* node, int val )
-//{
-//	node_t* n = new node_t;
-//	n->next = node;
-//	n->data = val;
-//	return n;
-//}
-//
-//void slist_insert( node_t** head, int val )
-//{
-//	*head = _slist_prepend( *head, val );
-//}
-//
-//void slist_insert_sorted( node_t** head, int val )
-//{
-//	if ( !*head || val < (*head)->data )
-//	{
-//		*head = _slist_prepend( *head, val );
-//	}
-//	else if ( !(*head)->next )
-//	{
-//		if ( (*head)->data < val )
-//		{
-//			_slist_append( (*head), val );
-//		}
-//		else
-//		{
-//			*head = _slist_prepend( *head, val );	
-//		}
-//	}
-//	else
-//	{
-//		node_t* n = *head;
-//		while ( n->next && n->next->data < val )
-//		{
-//			n = n->next;
-//		}
-//
-//		n->next = _slist_prepend( n->next, val );
-//	}	
-//}
-//
-//void slist_destroy( node_t** head )
-//{	
-//	while( *head )
-//	{
-//		node_t* n = *head;
-//		*head = (*head)->next;
-//		delete n;
-//		n = 0;		
-//	}
-//}
-//
-//void slist_delete( node_t** head, int val )
-//{
-//	if ( !*head )
-//		return;
-//
-//	if ( (*head)->data == val )
-//	{
-//		node_t* n = *head;
-//		*head = (*head)->next;
-//		delete n;			
-//		return;
-//	}
-//
-//	node_t* h = *head;
-//	while ( h->next && h->next->data != val )
-//	{
-//		h = h->next;
-//	}
-//
-//	node_t* n = h->next;
-//	h->next = n->next;
-//	delete n;
-//}
-//
-//void slist_print( node_t* head )
-//{
-//	while ( head )
-//	{
-//		std::cout << head->data << ", ";
-//		head = head->next;
-//	}
-//}
-//
-//void srev( char* begin, char* end )
-//{
-//	--end;
-//
-//	while ( begin < end )
-//	{
-//		char c = *begin;
-//		*begin = *end;
-//		*end = c;
-//		++begin;
-//		--end;
-//	}
-//}
-//
-//void wrev( char* begin, char* end )
-//{
-//	srev( begin, end );
-//	char* wb = begin;
-//	char* we = begin;
-//
-//	do
-//	{
-//		while ( wb != end && !isalpha(*wb) )
-//			++wb;
-//		we = wb;
-//		while ( we != end && isalpha(*we) )
-//			++we;
-//		srev( wb, we );
-//		wb = we;
-//	} while ( we != end );
-//}
-//
-//void remw( char* text )
-//{
-//	char* getp = text;
-//	char* putp = text;
-//
-//	while ( *getp )
-//	{
-//		while ( isspace(*getp) )
-//			++getp;
-//		*putp = *getp;
-//		++putp;
-//		++getp;
-//	}
-//	*putp = '\0';
-//}
-//
-//void remdup( char* text )
-//{
-//	char* getp = text;
-//	char* putp = text;
-//	
-//	while ( *getp )
-//	{		
-//		*putp = *getp;
-//		char last = *getp;
-//		while ( last == *getp )
-//			++getp;
-//		++putp;
-//		//++getp;
-//	}
-//	*putp = '\0';
-//}
-//
-//char ffu( const char* str )
-//{
-//	char c = *str;
-//	const char* p = str;
-//
-//	while ( *str )
-//	{
-//		while ( *str && *p != *str )
-//			++str;
-//
-//		if ( !*str )
-//			return *p;
-//
-//		char c = *p;
-//
-//		while ( c == *p )
-//			++p;
-//
-//		str = p;
-//
-//		++str;
-//	}
-//
-//	return *p;
-//}
 
 #include <vector>
 #include <cstdint>
@@ -209,59 +18,7 @@
 #include "src_file.h"
 #include "spu_pseudo.h"
 
-//const char* ppc_decode_mnem( uint32_t i );
-
-//#include "spu_internals_x86.h"
-//#include "spu_unittest.h"
-
 using namespace std;
-
-//vector<string> StringTableA16( const char* begin, const char* end )
-//{
-//	vector<string> Res;
-//
-//	const char* b = begin;
-//
-//	while ( b != end )
-//	{
-//		if ( *b < 0x20 )
-//		{
-//			break;
-//		}
-//
-//		string NewString(b);		
-//
-//		Res.push_back(NewString);
-//
-//		b += NewString.size();
-//
-//		while ( !*b )
-//			++b;
-//	}	
-//
-//	return Res;
-//
-//}
-
-//#include <regex>
-//#include <algorithm>
-//#include <Windows.h>
-
-//map<string, vector<string>> Calls;
-//
-//void f(const string& FnName, size_t IndentDepth, ostream& out)
-//{
-//	auto& FnList = Calls[FnName];
-//
-//	const string Indent(IndentDepth, ' ');
-//
-//	for ( size_t i = 0; i < FnList.size(); ++i )
-//	{
-//		out << Indent << FnList[i] << endl;
-//		if ( FnList[i] != FnName ) 
-//			f( FnList[i], IndentDepth + 1, out );
-//	}
-//}
 
 void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
 	size_t VirtBase )
@@ -479,7 +236,7 @@ int main( int /*argc*/, char** /*argv*/ )
 		}
 	}
 
-	//SPUBinary.resize( invalid );
+	SPUBinary.resize( invalid );
 
 	spu::op_distrib_t OPDistrib;
 	{
@@ -514,84 +271,30 @@ int main( int /*argc*/, char** /*argv*/ )
 	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
 
 	set<uint32_t> Ctors;
+	set<uint32_t> Text;
 	{
 		for ( size_t i = 0; i < LS.size(); i += 4 )
 		{
 			if ( PossibleCtorDtorList( i, LS ) )
 			{
-				Ctors.insert( elf::VirtualBaseAddr(SPU0) + (4 * i) );
+				Ctors.insert( (4 * i) );
+			}
+
+			if ( PossibleString( i, LS ) )
+			{
+				Text.insert( (4 * i) );
 			}
 		}
-	}
-
-	int i = 3;
-
-
-
-	
+	}	
 	
 	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
 
-	
+	OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
 
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, OPFlags, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 
 	//ConsoleDisplay( SPUBinary, [](uint32_t i){ cout << hex << setw(8) << i << endl;} );
 	
-
-	//void ClearScreen();
-
-	//FileWatch fw(TEXT("spu_commands.spu"));
-
-	//
-
-	//SPU_t mySPU;
-
-	//spu_parse_file( &mySPU, "spu_commands.spu" );
-
-	////return 0;
-	//
-
-	//size_t gpr_offset = 0;
-	//bool input_dirty = true;
-
-	//for(;;)
-	//{
-	//	if ( GetAsyncKeyState(VK_ESCAPE) )
-	//	{
-	//		break;
-	//	}
-
-	//	if ( fw.IsDirty() )
-	//	{
-	//		spu_parse_file( &mySPU, "spu_commands.spu" );
-	//	}
-
-	//	if ( input_dirty )
-	//	{
-	//		ClearScreen();
-
-
-	//		print_GPR<uint16_t>( &mySPU, gpr_offset, 10 );
-	//		std::cout << "---------------------" << std::endl;
-	//		print_GPR_hex( &mySPU, gpr_offset, 10 );
-	//		std::cout << std::endl;
-
-	//		input_dirty = false;
-	//	}
-
-	//	if ( GetAsyncKeyState(VK_UP) && gpr_offset != 0 ) 
-	//	{
-	//		--gpr_offset;
-	//		input_dirty = true;
-	//	}
-	//	if ( GetAsyncKeyState(VK_DOWN) && gpr_offset != (128 - 11) ) 
-	//	{
-	//		++gpr_offset;
-	//		input_dirty = true;
-	//	}
-	//}
-
 	return 0;
 }
