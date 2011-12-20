@@ -14,4 +14,8 @@ const void*	mmend(const memmap_t*);
 
 void		mmcreate(const char* path, size_t size);
 
+//struct memregion_t;
+
+//void mrcreate( size_t length, size_t align = 16, size_t base = 0 );
+
 #endif
