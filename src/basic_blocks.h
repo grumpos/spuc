@@ -14,7 +14,7 @@ struct SPU_ExecutableInfo
 };
 
 bool PossibleShufbMask( void* start );
-bool PossibleCtorDtorList( size_t start, const std::vector<uint32_t>& Binary );
+bool PossibleCtorDtorList( size_t start, const std::vector<uint32_t>& Binary, std::vector<uint32_t>& FnCalls );
 bool PossibleString( size_t offset, const std::vector<uint32_t>& Binary );
 
 namespace spu
@@ -42,7 +42,8 @@ namespace spu
 		vector<uint32_t>& Binary, 
 		op_distrib_t& Distrib, 
 		size_t VirtualBase, 
-		size_t EntryIndex );
+		size_t EntryIndex,
+		const std::vector<uint32_t>& FnDynCalls );
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary );
 

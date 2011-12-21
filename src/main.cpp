@@ -272,11 +272,12 @@ int main( int argc, char** argv )
 	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
 
 	set<uint32_t> Ctors;
+	std::vector<uint32_t> FnCalls;
 	set<uint32_t> Text;
 	{
 		for ( size_t i = 0; i < LS.size(); i += 4 )
 		{
-			if ( PossibleCtorDtorList( i, LS ) )
+			if ( PossibleCtorDtorList( i, LS, FnCalls ) )
 			{
 				Ctors.insert( (4 * i) );
 			}
@@ -288,7 +289,9 @@ int main( int argc, char** argv )
 		}
 	}	
 	
-	auto FnRanges = spu::BuildInitialBlocks( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), EntryIndex );
+	auto FnRanges = spu::BuildInitialBlocks( 
+		SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), 
+		EntryIndex, FnCalls );
 
 	OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
 

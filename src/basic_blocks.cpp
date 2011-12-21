@@ -105,12 +105,16 @@ namespace spu
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
 
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
-		vector<uint32_t>& Binary, op_distrib_t& Distrib, size_t /*VirtualBase*/, size_t EntryIndex )
+		vector<uint32_t>& Binary, op_distrib_t& Distrib, 
+		size_t /*VirtualBase*/, size_t EntryIndex, 
+		const std::vector<uint32_t>& FnDynCalls )
 	{	
 		set<size_t> InvalidJumps;
 		
 		set<size_t> FnEntryByStaticCall;
 		{
+			copy( FnDynCalls.begin(), FnDynCalls.end(), inserter( FnEntryByStaticCall, FnEntryByStaticCall.end() ) );
+			
 			auto GetJumpTargets = [Binary, &InvalidJumps](size_t IOffset)->size_t
 			{
 				const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[IOffset]);
@@ -578,7 +582,8 @@ bool PossibleShufbMask( void* start )
 		return false;
 }
 
-bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
+bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary,
+	std::vector<uint32_t>& FnCalls )
 {
 	// align: 16 byte
 	// format: FFFFFFFF, n x fptr, FFFFFFFF, m x fptr
@@ -587,14 +592,14 @@ bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
 	if ( 0xFFFFFFFF != Binary[offset++] )
 		return false;
 
-	std::vector<uint32_t> FnCalls;
+	//std::vector<uint32_t> FnCalls;
 
 	const uint32_t* val = &Binary[offset-1];
 
 	while ( offset < Binary.size() && 
 		( spu::IsValidFEPAddr(BE32(Binary[offset])) || 0 == Binary[offset]) )
 	{
-		FnCalls.push_back( offset );
+		FnCalls.push_back( BE32(Binary[offset]) );
 		++offset;
 	}
 
@@ -605,7 +610,7 @@ bool PossibleCtorDtorList( size_t offset, const std::vector<uint32_t>& Binary )
 	while ( offset < Binary.size() && 
 		( spu::IsValidFEPAddr(BE32(Binary[offset])) && 0 != Binary[offset]) )
 	{
-		FnCalls.push_back( offset );
+		FnCalls.push_back( BE32(Binary[offset]) );
 		++offset;
 	}
 
