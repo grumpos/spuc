@@ -113,7 +113,7 @@ namespace spu
 		
 		set<size_t> FnEntryByStaticCall;
 		{
-			copy( FnDynCalls.begin(), FnDynCalls.end(), inserter( FnEntryByStaticCall, FnEntryByStaticCall.end() ) );
+			//copy( FnDynCalls.begin(), FnDynCalls.end(), inserter( FnEntryByStaticCall, FnEntryByStaticCall.end() ) );
 			
 			auto GetJumpTargets = [Binary, &InvalidJumps](size_t IOffset)->size_t
 			{

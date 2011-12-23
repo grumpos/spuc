@@ -237,7 +237,7 @@ int main( int argc, char** argv )
 		}
 	}
 
-	SPUBinary.resize( invalid );
+	SPUBinary.resize( 0x190C0 / 4 ); // hardcode for now
 
 	spu::op_distrib_t OPDistrib;
 	{
@@ -288,6 +288,8 @@ int main( int argc, char** argv )
 			}
 		}
 	}	
+
+	//FnCallTargets.insert( FnCalls.begin(), FnCalls.end() );
 	
 	auto FnRanges = spu::BuildInitialBlocks( 
 		SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), 

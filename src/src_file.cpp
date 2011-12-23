@@ -34,15 +34,18 @@ namespace spu
 {
 	typedef pair<size_t, size_t> range_t;
 
-	vector<uint32_t> BytecodeFromRanges( const vector<uint32_t>& Binary, const vector<range_t>& FnRanges )
+	vector<uint32_t> BytecodeFromRanges( 
+		const vector<uint32_t>& Binary, 
+		const vector<range_t>& FnRanges )
 	{
 		vector<uint32_t> NewBytecode;
 
 		for_each( FnRanges.cbegin(), FnRanges.cend(),
 			[Binary, &NewBytecode]( range_t r )
 		{
-			NewBytecode.insert( NewBytecode.end(), Binary.cbegin() + r.first, Binary.cbegin() + r.second );
-			//NewBytecode.insert( NewBytecode.end(), &Binary[r.first], &Binary[r.second] );
+			NewBytecode.insert( 
+				NewBytecode.end(), Binary.cbegin() + r.first, 
+				Binary.cbegin() + r.second );
 		});
 
 		return NewBytecode;
@@ -66,7 +69,9 @@ namespace spu
 		return NewIPList;
 	}
 
-	void MakeSPUSrcFile( const vector<uint32_t>& Binary, const vector<vector<range_t>>& FnRanges,
+	void MakeSPUSrcFile( 
+		const vector<uint32_t>& Binary, 
+		const vector<vector<range_t>>& FnRanges,
 		const vector<uint64_t>& OPFlags,
 		size_t SPUOffset, size_t VirtualBase, size_t EntryAddr )
 	{		

@@ -14,6 +14,10 @@
 #define BB_LEAD						SPU_IS_BRANCH_TARGET
 #define BB_TERM						SPU_IS_BRANCH
 
+#define SPU_OP_INVALID_GPR			(0xFF)
+
+
+
 const size_t SPU_MAX_INSTRUCTION_COUNT = 0x800;
 
 enum SPU_OP_TYPE
