@@ -460,7 +460,8 @@ namespace spu
 		{ 
 			Flags[Index] |= SPU_IS_BRANCH;
 
-			Flags[Index + spu_op_decode_branch_offset(Binary[Index])] |= SPU_IS_BRANCH_TARGET;
+			const int32_t offset = spu_op_decode_branch_offset(Binary[Index]);
+			Flags[Index + offset] |= SPU_IS_BRANCH_TARGET;
 
 			Flags[Index + 1] |= BB_LEAD;
 		});
@@ -491,6 +492,20 @@ namespace spu
 		FLAG_STATIC_COND( brnz );
 		FLAG_STATIC_COND( brhz );
 		FLAG_STATIC_COND( brhnz );
+
+#define FLAG_DYNAMIC( name )\
+	auto& name = Distrib[#name];\
+		for_each( name.begin(), name.end(), [&Flags, Binary](size_t Index)\
+		{ \
+			Flags[Index] |= SPU_IS_BRANCH;\
+			\
+			Flags[Index + 1] |= BB_LEAD;\
+		} );
+
+		FLAG_DYNAMIC( bi );
+		FLAG_DYNAMIC( iret );
+		FLAG_DYNAMIC( bisled );
+		FLAG_DYNAMIC( bisl );
 
 #define FLAG_DYNAMIC_COND( name )\
 	auto& name = Distrib[#name];\

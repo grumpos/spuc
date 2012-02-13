@@ -153,10 +153,10 @@ int main( int argc, char** argv )
 
 	vector<uint8_t> ELFFile;
 	{
-		const std::string ModuleName = (argc > 1) ? argv[1] : "D:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf";
-		//memmap_t* ELFFileMapped = mmopen( "D:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );//aim_spu_module
+		const std::string ModuleName = (argc > 1) ? argv[1] : "F:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf";
+		//memmap_t* ELFFileMapped = mmopen( "F:\\PS3\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf" );//aim_spu_module
 		memmap_t* ELFFileMapped = mmopen( ModuleName.c_str() );
-		//memmap_t* ELFFileMapped = mmopen( "D:\\cell\\host-win32\\spu\\bin\\a.out" );
+		//memmap_t* ELFFileMapped = mmopen( "F:\\cell\\host-win32\\spu\\bin\\a.out" );
 
 		ELFFile.resize( mmsize(ELFFileMapped) );
 
@@ -296,6 +296,23 @@ int main( int argc, char** argv )
 		EntryIndex, FnCalls );
 
 	OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+
+	
+
+	std::ofstream bbdump("d");
+
+// 	for ( size_t i = 0; i < SPUBinary.size(); ++i )
+// 	{
+// 		bbdump << spu_decode_op_components( SPUBinary[i] );
+// 	}
+
+	for_each( FnCalls.begin(), FnCalls.end(), [&]
+	( uint32_t op )
+	{
+		const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
+
+		FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
+	} );
 
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, OPFlags, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
