@@ -442,7 +442,14 @@ namespace spu
 
 		Flags.resize( Binary.size() + 1 ); // +1 for the BB_LEAD flags to avoid checking for EOF
 
-		Flags[0] |= BB_LEAD;
+#define FLAG_STATIC( name )\
+	auto& name = Distrib[#name];\
+	for_each( name.begin(), name.end(), [&Flags, Binary](size_t Index)\
+		{ \
+		Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC;\
+		\
+		Flags[Index + spu_op_decode_branch_offset(Binary[Index])] |= SPU_IS_BRANCH_TARGET;\
+		} );
 
 		auto& br = Distrib["br"];
 		for_each( br.begin(), br.end(), [&Flags, Binary](size_t Index)
@@ -452,7 +459,6 @@ namespace spu
 			const int32_t offset = spu_op_decode_branch_offset(Binary[Index]);
 			Flags[Index + offset] |= SPU_IS_BRANCH_TARGET;
 
-			Flags[Index + 1] |= BB_LEAD;
 		});		
 
 		auto& brsl = Distrib["brsl"];
@@ -463,29 +469,23 @@ namespace spu
 			const int32_t offset = spu_op_decode_branch_offset(Binary[Index]);
 			Flags[Index + offset] |= SPU_IS_BRANCH_TARGET;
 
-			Flags[Index + 1] |= BB_LEAD;
 		});
 
+		//auto& bra = Distrib["bra"];
+		//for_each( bra.begin(), bra.end(), [&Flags](size_t Index)
+		//{ Flags[Index] |= SPU_IS_BRANCH; } );
 
-		// As far as I know C code never compiles into absolute static branches on the SPU
-
-// 		auto& bra = Distrib["bra"];
-// 		for_each( bra.begin(), bra.end(), [&Flags](size_t Index)
-// 		{ Flags[Index] |= SPU_IS_BRANCH; } );
-// 
-// 		auto& brasl = Distrib["brasl"];
-// 		for_each( brasl.begin(), brasl.end(), [&Flags](size_t Index)
-// 			{ Flags[Index] |= SPU_IS_BRANCH; } );
+		//auto& brasl = Distrib["brasl"];
+		//for_each( brasl.begin(), brasl.end(), [&Flags](size_t Index)
+		//{ Flags[Index] |= SPU_IS_BRANCH; } );
 
 #define FLAG_STATIC_COND( name )\
 	auto& name = Distrib[#name];\
 		for_each( name.begin(), name.end(), [&Flags, Binary](size_t Index)\
 		{ \
-			Flags[Index] |= SPU_IS_BRANCH & SPU_IS_BRANCH_CONDITIONAL;\
+			Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC | SPU_IS_BRANCH_CONDITIONAL;\
 			\
 			Flags[Index + spu_op_decode_branch_offset(Binary[Index])] |= SPU_IS_BRANCH_TARGET;\
-			\
-			Flags[Index + 1] |= BB_LEAD;\
 		} );
 
 		FLAG_STATIC_COND( brz );
@@ -497,9 +497,7 @@ namespace spu
 	auto& name = Distrib[#name];\
 		for_each( name.begin(), name.end(), [&Flags, Binary](size_t Index)\
 		{ \
-			Flags[Index] |= SPU_IS_BRANCH;\
-			\
-			Flags[Index + 1] |= BB_LEAD;\
+			Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_DYNAIMC;\
 		} );
 
 		FLAG_DYNAMIC( bi );
@@ -511,9 +509,7 @@ namespace spu
 	auto& name = Distrib[#name];\
 		for_each( name.begin(), name.end(), [&Flags, Binary](size_t Index)\
 		{ \
-			Flags[Index] |= SPU_IS_BRANCH & SPU_IS_BRANCH_CONDITIONAL;\
-			\
-			Flags[Index + 1] |= BB_LEAD;\
+			Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_DYNAIMC | SPU_IS_BRANCH_CONDITIONAL;\
 		} );
 		
 		FLAG_DYNAMIC_COND( biz );
@@ -659,6 +655,8 @@ bool ZeroPaddig16( const void* data )
 	const __m128i	t0 = _mm_cmpeq_epi8( block, _mm_setzero_si128() );
 
 	// WARNING: inverted because endianness mismatch
+	// "xyzw" -> BE: 1111000000000000
+	//		  -> LE: 0000111111111111
 	const uint16_t	mask = ~(uint16_t)_mm_movemask_epi8(t0);
 
 	// don't care about all zero

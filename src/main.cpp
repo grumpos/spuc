@@ -20,6 +20,13 @@
 
 using namespace std;
 
+struct bb
+{
+	size_t b;
+	size_t e;
+	bb* n;
+};
+
 void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
 	size_t VirtBase )
 {	
@@ -218,15 +225,13 @@ int main( int argc, char** argv )
 		EntryIndex = elf::EntryPointIndex( SPU0 );
 	}
 
+
 	
 
-	//spuGatherLoads( SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0) );
-	vector<uint64_t> OPFlags;
 
+	//spu_img_regions_t regs = elf::spu::ReadLoadRegions( SPU0 );
 
-	spu_img_regions_t regs = elf::spu::ReadLoadRegions( SPU0 );
-
-	// find first invalid op
+	 //find first invalid op
 	size_t invalid = 0;
 	for ( size_t i = 0; i < SPUBinary.size(); ++i )
 	{
@@ -242,31 +247,59 @@ int main( int argc, char** argv )
 	spu::op_distrib_t OPDistrib;
 	{
 		OPDistrib = spu::GatherOPDistribution( SPUBinary );
-	}	
-
-	set<uint32_t> FnCallTargets;
-	{
-		auto& FnCalls = OPDistrib["brsl"];
-
-		for_each( FnCalls.begin(), FnCalls.end(), [&]
-		( uint32_t op )
-		{
-			const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
-
-			FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
-		} );
 	}
 
-	set<uint32_t> SHUFMasks;
+	vector<uint64_t> OPFlags;
 	{
-		for ( size_t i = 0; i < SPUBinary.size(); i += 4 )
+		OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+	}
+
+
+	vector<bb> blocks;
+	{
+		// divide code into basic blocks. 
+		// treat STOP as a block end.
+		size_t lastbegin = 0;
+
+		for ( size_t ii = 0; ii < OPFlags.size() -1; ++ii )
 		{
-			if ( PossibleShufbMask(&SPUBinary[i]))
+			if ( OPFlags[ii] & SPU_IS_BRANCH || 0 == SPUBinary[ii] )
 			{
-				SHUFMasks.insert( elf::VirtualBaseAddr(SPU0) + (4 * i) );
+				bb newblock = { lastbegin, ii + 1, nullptr };
+				blocks.push_back(newblock);
+				lastbegin = ii + 1;
 			}
 		}
+
+		for ( size_t ii = 0; ii < blocks.size(); ++ii )
+		{
+			const uint32_t instr = SPUBinary[blocks[ii].e - 1];
+		}
 	}
+
+// 	set<uint32_t> FnCallTargets;
+// 	{
+// 		auto& FnCalls = OPDistrib["brsl"];
+// 
+// 		for_each( FnCalls.begin(), FnCalls.end(), [&]
+// 		( uint32_t op )
+// 		{
+// 			const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
+// 
+// 			FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
+// 		} );
+// 	}
+
+// 	set<uint32_t> SHUFMasks;
+// 	{
+// 		for ( size_t i = 0; i < SPUBinary.size(); i += 4 )
+// 		{
+// 			if ( PossibleShufbMask(&SPUBinary[i]))
+// 			{
+// 				SHUFMasks.insert( elf::VirtualBaseAddr(SPU0) + (4 * i) );
+// 			}
+// 		}
+// 	}
 
 	vector<uint32_t> LS(0x40000/4);
 	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
@@ -274,6 +307,7 @@ int main( int argc, char** argv )
 	set<uint32_t> Ctors;
 	std::vector<uint32_t> FnCalls;
 	set<uint32_t> Text;
+	set<string> TextString;
 	{
 		for ( size_t i = 0; i < LS.size(); i += 4 )
 		{
@@ -285,9 +319,10 @@ int main( int argc, char** argv )
 			if ( PossibleString( i, LS ) )
 			{
 				Text.insert( (4 * i) );
+				TextString.insert( (const char*)LS.data() + (4 * i) );
 			}
 		}
-	}	
+	}
 
 	//FnCallTargets.insert( FnCalls.begin(), FnCalls.end() );
 	
@@ -295,7 +330,7 @@ int main( int argc, char** argv )
 		SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), 
 		EntryIndex, FnCalls );
 
-	OPFlags = spu::BuildOPFlags( SPUBinary, OPDistrib );
+	
 
 	
 
@@ -306,13 +341,13 @@ int main( int argc, char** argv )
 // 		bbdump << spu_decode_op_components( SPUBinary[i] );
 // 	}
 
-	for_each( FnCalls.begin(), FnCalls.end(), [&]
-	( uint32_t op )
-	{
-		const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
-
-		FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
-	} );
+// 	for_each( FnCalls.begin(), FnCalls.end(), [&]
+// 	( uint32_t op )
+// 	{
+// 		const SPU_OP_COMPONENTS OC = spu_decode_op_components( SPUBinary[op] );
+// 
+// 		FnCallTargets.insert( elf::VirtualBaseAddr(SPU0) + (4 * op) + (OC.IMM << 2) );
+// 	} );
 
 	spu::MakeSPUSrcFile( SPUBinary, FnRanges, OPFlags, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );

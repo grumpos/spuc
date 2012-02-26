@@ -10,9 +10,9 @@
 #define SPU_IS_BRANCH_CONDITIONAL	(1 << 1)
 #define SPU_IS_BRANCH_TARGET		(1 << 2)
 #define SPU_IS_ASSIGNMENT			(1 << 3)
+#define SPU_IS_BRANCH_STATIC		(1 << 4)
+#define SPU_IS_BRANCH_DYNAIMC		(1 << 5)
 
-#define BB_LEAD						SPU_IS_BRANCH_TARGET
-#define BB_TERM						SPU_IS_BRANCH
 
 #define SPU_OP_INVALID_GPR			(0xFF)
 
