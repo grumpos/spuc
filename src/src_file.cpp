@@ -72,7 +72,7 @@ namespace spu
 	void MakeSPUSrcFile( 
 		const vector<uint32_t>& Binary, 
 		const vector<vector<range_t>>& FnRanges,
-		const vector<uint64_t>& OPFlags,
+		//const vector<uint64_t>& OPFlags,
 		size_t SPUOffset, size_t VirtualBase, size_t EntryAddr )
 	{		
 		vector<vector<uint32_t>> Bytecodes;
@@ -177,7 +177,7 @@ namespace spu
 			{
 				const size_t IP = VirtualBase + ((*IPIter)[k] * 4);
 
-				if ( OPFlags[(*IPIter)[k]] & SPU_IS_BRANCH_TARGET )
+				/*if ( OPFlags[(*IPIter)[k]] & SPU_IS_BRANCH_TARGET )
 				{
 					off << MakeLabel( VirtualBase, (*IPIter)[k] * 4 ) << endl;
 				}
@@ -191,7 +191,7 @@ namespace spu
 				else
 				{
 					off << "\t" << spu_make_pseudo((SPU_INSTRUCTION&)((*BytecodeIter)[k]), IP) << endl;
-				}				
+				}	*/			
 			}
 
 			off << "}" << endl << endl;

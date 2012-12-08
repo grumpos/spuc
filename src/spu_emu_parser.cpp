@@ -1,42 +1,51 @@
 
-//
-///*
-//struct Ticker
-//{
-//	std::vector<uint64_t> ticks_;
-//	uint64_t freq_;
-//	uint64_t t0_;
-//
-//	Ticker() 
-//		: freq_(0),
-//		t0_(0)
-//	{
-//		ticks_.reserve(32);
-//		QueryPerformanceFrequency((LARGE_INTEGER*)&freq_);
-//		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
-//	}
-//
-//	void Tick()
-//	{
-//		uint64_t t1 = 0;
-//		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
-//		ticks_.push_back(t1 - t0_);
-//		t0_ = t1;
-//	}
-//
-//	void Reset()
-//	{
-//		ticks_.clear();
-//		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
-//	}
-//
-//	string Stats()
-//	{
-//		std::ostringstream oss;
-//		std::for_each( ticks_.cbegin(), ticks_.cend(), [&oss](uint64_t t){ oss << t << ", "; });
-//		return oss.str();
-//	}
-//};*/
+#include <vector>
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <cstdint>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+using namespace std;
+
+struct Ticker
+{
+	std::vector<uint64_t> ticks_;
+	uint64_t freq_;
+	uint64_t t0_;
+
+	Ticker() 
+		: freq_(0),
+		t0_(0)
+	{
+		ticks_.reserve(32);
+		QueryPerformanceFrequency((LARGE_INTEGER*)&freq_);
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
+	}
+
+	void Tick()
+	{
+		uint64_t t1 = 0;
+		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
+		ticks_.push_back(t1 - t0_);
+		t0_ = t1;
+	}
+
+	void Reset()
+	{
+		ticks_.clear();
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
+	}
+
+	string Stats()
+	{
+		std::ostringstream oss;
+		std::for_each( ticks_.cbegin(), ticks_.cend(), [&oss](uint64_t t){ oss << t << ", "; });
+		return oss.str();
+	}
+};
+
 //
 //struct spu_program_t
 //{
@@ -539,30 +548,11 @@
 //		s = oss.str();
 //	} );
 //}
-//
-//	
-//
-//
-//	
-//
+
+
+
 //#define ALL( _Container ) (_Container).begin(), (_Container).end()
-//	
-//	vector<size_t> ELF_offsets = spuFindSPUOffsetsInELFFile(fraw);
-//
-//
-//	vector<ElfFile<ELF_32_traits_t>> SPUList;
-//
-//	std::transform(
-//		ALL(ELF_offsets),
-//		std::back_inserter(SPUList),
-//		[]( size_t Offset ) -> ElfFile<ELF_32_traits_t>
-//	{
-//		return ElfFile<ELF_32_traits_t>("D:\\Torrents\\BLES00945\\BLES00945\\PS3_GAME\\USRDIR\\eboot.elf", Offset);
-//		//return ElfFile<ELF_32_traits_t>("D:\\Dev\\segata-crossedgeu\\BLUS30348\\PS3_GAME\\USRDIR\\eboot.elf", Offset);
-//	});
-//
-//	
-//
+
 //	//int i = 0;
 //
 //	std::for_each( ELF_offsets.cbegin(), ELF_offsets.cbegin() +1 ,
@@ -708,46 +698,3 @@
 //		}
 //	});
 //}
-//
-//void spu_parse_file( SPU_t* targetSPU, const char* /*path */)
-//{		
-//	spu_execute( targetSPU );
-//}
-//
-////string BytestreamToHexString( const void* data, size_t length, uint32_t stride )
-////{
-////	string out, hex_dump, txt_dump;
-////
-////	for ( size_t i = 0; i < length; ++i )
-////	{	
-////		if ( 0 != i
-////			&& 0 == (i % stride) )
-////		{
-////			out += hex_dump;
-////			out += " | ";
-////			out += txt_dump;
-////			out += "\n";
-////			hex_dump.clear();
-////			txt_dump.clear();
-////		}
-////
-////		uint8_t byte = ((const uint8_t*)data)[i];
-////		hex_dump.push_back( "0123456789ABCDEF"[0xF & (byte >> 4)] );
-////		hex_dump.push_back( "0123456789ABCDEF"[0xF & byte] );
-////		hex_dump.push_back( ' ' );
-////		txt_dump.push_back( byte >= 0x20 ? (char)byte : '.' );
-////
-////	}
-////
-////	if ( !hex_dump.empty() )
-////	{
-////		hex_dump.resize( 16*3, ' ' );
-////		txt_dump.resize( 16*3, ' ' );
-////		out += hex_dump;
-////		out += " | ";
-////		out += txt_dump;
-////		out += "\n";
-////	}
-////
-////	return out;
-////}

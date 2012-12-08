@@ -1,58 +1,15 @@
-#include "spu_idb.h"
-#include "spu_emu.h"
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <string>
+#include "spu_idb.h"
+#include "spu_emu.h"
 
+using namespace std;
 
-void spu_dummy_solver( struct SPU_t*, union SPU_INSTRUCTION op )
-{
-	std::cout << "Invalid instruction: " << spu_decode_op_mnemonic( op.Instruction ) << std::endl; 
-}
-
-#define SPU_LINK_MNEM_TO_SOLVER(m) spu_mnem_op_t( #m, &spu_##m )
-
-static const spu_mnem_op_t _solvers[] = 
-{
-	
-	SPU_LINK_MNEM_TO_SOLVER( dummy_solver )
-};
-
-
-
-static std::vector<SPU_OP_TYPE>			db_op_type( SPU_MAX_INSTRUCTION_COUNT, size_t(-1) );
-static std::vector<std::string>			db_op_mnemonic( SPU_MAX_INSTRUCTION_COUNT );
-static std::vector<SPU_INSTR_PTR>		db_op_solver( SPU_MAX_INSTRUCTION_COUNT, spu_dummy_solver );
-std::vector<std::vector<SPU_ARGLIST>>	db_op_arglist( SPU_MAX_INSTRUCTION_COUNT );
-
-/*
-struct SPU_IDB
-{
-	size_t type;
-	const char* mnemonic;
-};
-
-static const SPU_IDB db_op_ltb[] =
-{
-#define _A0()        {0xFF,{0xFF,0xFF,0xFF,0}}
-#define _A1(a)       {1,{a,0xFF,0xFF,0}}
-#define _A2(a,b)     {2,{a,b,0xFF,0}}
-#define _A3(a,b,c)   {3,{a,b,c,0}}
-#define _A4(a,b,c,d) {4,{a,b,c,d}}
-
-#define APUOP(TAG, FORMAT, OPCODE, MNEMONIC, ASM_FORMAT, DEPENDENCY, PIPE) \
-	{ SPU_OP_TYPE_##FORMAT, MNEMONIC },
-
-	APUOP(M_DFCEQ,		RR,	0x3C3,	"dfceq",	_A3(A_T,A_A,A_B),		0x00112,	FPD)
-	APUOP(M_DFCMEQ,		RR,	0x3CB,	"dfcmeq",	_A3(A_T,A_A,A_B),		0x00112,	FPD)
-	APUOP(M_DFCGT,		RR,	0x2C3,	"dfcgt",	_A3(A_T,A_A,A_B),		0x00112,	FPD)
-	APUOP(M_DFCMGT,		RR,	0x2CB,	"dfcmgt",	_A3(A_T,A_A,A_B),		0x00112,	FPD)
-	APUOP(M_DFTSV,		RI7,0x3BF,	"dftsv",	_A3(A_T,A_A,A_U7),		0x00112,	FPD)
-
-#include "spu-insns.h"
-
-#undef APUOP
-};*/
+static vector<SPU_OP_TYPE>			db_op_type( SPU_MAX_INSTRUCTION_COUNT, SPU_OP_TYPE(-1) );
+static vector<string>			db_op_mnemonic( SPU_MAX_INSTRUCTION_COUNT );
+vector<vector<SPU_ARGLIST>>	db_op_arglist( SPU_MAX_INSTRUCTION_COUNT );
 
 void spu_build_op_db()
 {
@@ -67,24 +24,32 @@ void spu_build_op_db()
 { \
 	db_op_type[OPCODE] = SPU_OP_TYPE_##FORMAT; \
 	db_op_mnemonic[OPCODE] = MNEMONIC; \
-	SPU_ARGLIST al = ASM_FORMAT; \
-	db_op_arglist[OPCODE].push_back( al ); \
 }
 
-#define APUOPFB(TAG,		FORMAT,	OPCODE,	FEATUREBIT, MNEMONIC,	ASM_FORMAT,	DEPENDENCY,	PIPE)/* \
-{ \
-	db_op_type[OPCODE] = SPU_OP_TYPE_##FORMAT; \
-	db_op_mnemonic[OPCODE] = MNEMONIC; \
-	SPU_ARGLIST al = ASM_FORMAT; \
-	db_op_arglist[OPCODE].push_back( al ); \
-}*/
+#define APUOPFB(TAG,		FORMAT,	OPCODE,	FEATUREBIT, MNEMONIC,	ASM_FORMAT,	DEPENDENCY,	PIPE)
 
 #include "spu-insns.h"
-	
-}
 
 #undef APUOP
 #undef APUOPFB
+	
+}
+
+//enum class spu_op : uint16_t
+//{
+//#define APUOP(TAG,		FORMAT,	OPCODE,	MNEMONIC,	ASM_FORMAT,	DEPENDENCY,	PIPE) \
+//	TAG = OPCODE,
+//
+//#include "spu-insns.h"
+//
+//#undef APUOP
+//};
+
+#undef _A0
+#undef _A1
+#undef _A2
+#undef _A3
+#undef _A4
 
 void link_mnem_to_solver();
 
@@ -117,8 +82,6 @@ size_t spu_decode_op_opcode( uint32_t op )
 		return op & 0x7FE;
 	else
 		return 0x7FF;
-
-	return op;
 }
 
 SPU_OP_TYPE spu_decode_op_type( uint32_t op )
@@ -126,7 +89,7 @@ SPU_OP_TYPE spu_decode_op_type( uint32_t op )
 	return db_op_type[spu_decode_op_opcode( op )];
 }
 
-const char* spu_decode_op_mnemonic( uint32_t op )
+string spu_decode_op_mnemonic( uint32_t op )
 {
 	return db_op_mnemonic[spu_decode_op_opcode( op )].c_str();
 }
@@ -202,28 +165,251 @@ SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 	}
 }
 
-//void link_mnem_to_solver()
+void spu_insn_process_bin( const vector<uint32_t>& binary, 
+						  vector<spu_insn>& insninfo, 
+						  size_t vbase )
+{
+	insninfo.reserve( binary.size() );
+
+	uint32_t vaddr = (uint32_t)vbase;
+
+	for ( auto insn : binary )
+	{
+		spu_insn insn_info;
+		insn_info.raw = insn;
+		insn_info.vaddr = vaddr;
+		vaddr += 4;
+		insn_info.op = (spu_op)spu_decode_op_opcode( insn );
+//		insn_info.type = spu_decode_op_type( insn );
+		insn_info.comps = spu_decode_op_components( insn );
+		//insn_info.flags = 0;
+		insninfo.emplace_back( insn_info );
+	}
+}
+//
+//void spu_insn_process_flags( vector<spu_insn>& insninfo,
+//							map<string, vector<size_t>>& histogram )
 //{
-//	std::set<std::string> unimp;
-//
-//	size_t i = 0;
-//	std::for_each( db_op_mnemonic.begin(), db_op_mnemonic.end(), [&unimp, &i]( const std::string& mnem ) {
-//		if ( !mnem.empty() ) {
-//			const auto mnem_solver = std::find_if( _solvers, _solvers + _countof(_solvers), [&]( const spu_mnem_op_t& x ) {
-//				return mnem == x.first;
-//			} );
-//
-//			if ( mnem_solver != (_solvers + _countof(_solvers)) ) {
-//				db_op_solver[i] = mnem_solver->second;
-//			}
-//			else {		
-//				unimp.insert( mnem );
-//			}
+//	auto flag_by_op = [&]( string mnem, uint32_t flag )
+//	{
+//		auto& filter = histogram[mnem];
+//		for ( size_t index : filter )
+//		{
+//			insninfo[index].flags |= flag;
 //		}
+//	};
 //
-//		++i;
-//	});	
+//#define FLAG_DYNAMIC( MNEM ) \
+//	flag_by_op( #MNEM, SPU_IS_BRANCH | SPU_IS_BRANCH_DYNAIMC );
+//#define FLAG_DYNAMIC_COND( MNEM ) \
+//	flag_by_op( #MNEM, SPU_IS_BRANCH | SPU_IS_BRANCH_DYNAIMC | SPU_IS_BRANCH_CONDITIONAL );
+//#define FLAG_STATIC( MNEM ) \
+//	flag_by_op( #MNEM, SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC );
+//#define FLAG_STATIC_COND( MNEM ) \
+//	flag_by_op( #MNEM, SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC | SPU_IS_BRANCH_CONDITIONAL );
 //
-//	/*std::ofstream unimp_out("unimp.txt");
-//	std::copy( unimp.begin(), unimp.end(), std::ostream_iterator<std::string>(unimp_out, "\n") );*/
+//
+//	FLAG_STATIC( br );
+//	FLAG_STATIC( brsl );
+//	FLAG_STATIC( bra );
+//	FLAG_STATIC( brasl );
+//
+//	FLAG_STATIC_COND( brz );
+//	FLAG_STATIC_COND( brnz );
+//	FLAG_STATIC_COND( brhz );
+//	FLAG_STATIC_COND( brhnz );
+//
+//	FLAG_DYNAMIC( bi );
+//	FLAG_DYNAMIC( iret );
+//	FLAG_DYNAMIC( bisled );
+//	FLAG_DYNAMIC( bisl );	
+//		
+//	FLAG_DYNAMIC_COND( biz );
+//	FLAG_DYNAMIC_COND( binz );
+//	FLAG_DYNAMIC_COND( bihz );
+//	FLAG_DYNAMIC_COND( bihnz );
+//
+//	auto flag_branch_target = [&]( string mnem )
+//	{
+//		auto& filter = histogram[mnem];
+//		for ( size_t index : filter )
+//		{
+//			const ptrdiff_t offset = insninfo[index].comps.IMM;
+//			insninfo[index + offset].flags |= SPU_IS_BRANCH_TARGET;
+//		}
+//	};
+//
+//	flag_branch_target( "br" );
+//	flag_branch_target( "brsl" );
+//
+//	// Flags instructions that essentially do nothing but move registers around.
+//	// These are needed for there is no dedicated move register instruction for the SPU.
+//		
+//	auto flag_assignment = [&]( string mnem, uint32_t IMM )
+//	{
+//		auto& filter = histogram[mnem];
+//		for ( size_t index : filter )
+//		{			
+//			if ( IMM == insninfo[index].comps.IMM )
+//				insninfo[index].flags |= SPU_IS_ASSIGNMENT;
+//		}
+//	};
+//
+//#define FLAG_ASSIGNMENT(NAME, IMM) flag_assignment( #NAME, IMM );
+//
+//	FLAG_ASSIGNMENT( ahi, 0 );
+//	FLAG_ASSIGNMENT( ai, 0 );
+//	FLAG_ASSIGNMENT( sfhi, 0 );
+//	FLAG_ASSIGNMENT( sfi, 0 );
+//	FLAG_ASSIGNMENT( andbi, 0xFF );
+//	FLAG_ASSIGNMENT( andhi, 0x3FF );
+//	FLAG_ASSIGNMENT( andi, 0x3FF );
+//	FLAG_ASSIGNMENT( orbi, 0 );
+//	FLAG_ASSIGNMENT( orhi, 0 );
+//	FLAG_ASSIGNMENT( ori, 0 );
+//	FLAG_ASSIGNMENT( shlhi, 0 );
+//	FLAG_ASSIGNMENT( shli, 0 );
+//	FLAG_ASSIGNMENT( shlqbii, 0 );
+//	FLAG_ASSIGNMENT( shlqbyi, 0 );
+//	FLAG_ASSIGNMENT( rothi, 0 );
+//	FLAG_ASSIGNMENT( roti, 0 );
+//	FLAG_ASSIGNMENT( rotqbii, 0 );
+//	FLAG_ASSIGNMENT( rotqbyi, 0 );
+//	FLAG_ASSIGNMENT( rothmi, 0 );
+//	FLAG_ASSIGNMENT( rotmi, 0 );
+//	FLAG_ASSIGNMENT( rotqmbii, 0 );
+//	FLAG_ASSIGNMENT( rotqmbyi, 0 );
+//	FLAG_ASSIGNMENT( rotmahi, 0 );
+//	FLAG_ASSIGNMENT( rotmai, 0 );
+//
+//
 //}
+
+spu_insn* vaddr2insn( uint32_t vaddr, vector<spu_insn>& insns )
+{
+	auto base_vaddr = insns[0].vaddr;
+	auto offset = (vaddr - base_vaddr) / 4;
+	return &insns[offset];
+}
+
+vector<size_t> spu_find_basicblock_leader_offsets(
+	map<string, vector<size_t>>& opdistrib,
+	const vector<spu_insn>& insninfo )
+{
+	vector<size_t> bb_leads;
+
+	// gather insns that change the control flow
+	auto append = [&](string mnem) { 
+		bb_leads.insert( 
+			bb_leads.end(), opdistrib[mnem].cbegin(), opdistrib[mnem].cend() );
+	};
+	append( "br" );
+	append( "brsl" );
+	append( "brz" );
+	append( "brnz" );
+	append( "brhz" );
+	append( "brhnz" );
+	append( "bi" );
+	append( "iret" );
+	append( "bisl" );
+	append( "bisled" );
+	append( "biz" );
+	append( "binz" );
+	append( "bihz" );
+	append( "bihnz" );
+
+	/* 
+	There is a paddig with (l)nops that throws off the basic block generation.
+	Functions must start on a modulo 8 address and extra lnops are used to achieve that.
+	However, due to how basic block generation algo works, this often gives us a false
+	block where the first insn is an lnop where in face that lnop shold be consdidered
+	a deac code. To work around this, I'll treat nop/lnop as a (br $IP+4) op. That way
+	they get their own basic blocks and does not interfere with the rest of the 
+	processing, I hope. They will be treated as an unconditional jump to the next insn.
+	*/
+	append( "nop" );
+	append( "lnop" );		
+
+	copy_if( opdistrib["stop"].cbegin(), opdistrib["stop"].cend(), back_inserter(bb_leads),
+		[&](size_t index)
+	{
+		return 0 == insninfo[index].comps.IMM;
+	});
+
+	// next insn after cflow break will become a leader
+	for ( auto& index : bb_leads )
+	{
+		index += 1;
+	}
+
+	// entry is a leader 
+	// FIXME: hardcoded for now
+	bb_leads.push_back( 0 );
+
+
+	// gather branch targets
+	auto append_targets = [&](string mnem) { 
+		transform( opdistrib[mnem].cbegin(), opdistrib[mnem].cend(), back_inserter(bb_leads),
+			[&](size_t index) { return index + insninfo[index].comps.IMM; } );
+	};
+	append_targets( "br" );
+	append_targets( "brsl" );
+	append_targets( "brz" );
+	append_targets( "brnz" );
+	append_targets( "brhz" );
+	append_targets( "brhnz" );
+
+	sort( bb_leads.begin(), bb_leads.end() );
+
+	bb_leads.erase( unique( bb_leads.begin(), bb_leads.end() ), bb_leads.end() );
+
+	return bb_leads;
+}
+
+set<size_t> spu_get_brsl_targets(
+	map<string, vector<size_t>>& histogram,
+	const vector<spu_insn>& insninfo,
+	size_t entry_vaddr )
+{
+	set<size_t> vaddr_list;
+
+	vaddr_list.insert( entry_vaddr );
+
+	auto& brsl_offsets = histogram["brsl"];
+	for ( auto& offset : brsl_offsets )
+	{
+		const spu_insn* insn = &insninfo[offset];
+		vaddr_list.insert( (insn + insn->comps.IMM)->vaddr );
+	}
+
+	return vaddr_list;
+}
+
+set<size_t> spu_get_br_targets(
+	map<string, vector<size_t>>& histogram,
+	const vector<spu_insn>& insninfo )
+{
+	set<size_t> vaddr_list;
+
+	auto& jmp_op_offsets = histogram["br"];
+	for ( auto& offset : jmp_op_offsets )
+	{
+		const spu_insn* insn = &insninfo[offset];
+		vaddr_list.insert( (insn + insn->comps.IMM)->vaddr );
+	}
+
+	return vaddr_list;
+}
+
+set<size_t> spu_get_initial_fn_entries(
+	map<string, vector<size_t>>& histogram,
+	const vector<spu_insn>& insninfo,
+	size_t entry_vaddr )
+{
+	set<size_t> entries = 
+		spu_get_brsl_targets(histogram, insninfo, entry_vaddr);
+
+	entries.insert( insninfo[0].vaddr );
+
+	return entries;
+}

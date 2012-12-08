@@ -141,7 +141,7 @@ APUOP(M_FSMBI,		RI16,	0x194,	"fsmbi",	_A2(A_T,A_X16),	00002,	SHUF)	/** FormSelMa
 APUOP(M_LQA,		RI16,	0x184,	"lqa",		_A2(A_T,A_S18),	00002,	LS)	/** LoadQAbs      RT<-M[I16] */
 APUOP(M_LQR,		RI16,	0x19C,	"lqr",		_A2(A_T,A_R18),	00002,	LS)	/** LoadQRel      RT<-M[IP+I16] */
 APUOP(M_STOP,		RR,	0x000,	"stop",		_A0(),		00000,	BR)	/** STOP          stop */
-APUOP(M_STOP2,		RR,	0x000,	"stop",		_A1(A_U14),	00000,	BR)	/** STOP          stop */
+/*APUOP(M_STOP2,		RR,	0x000,	"stop",		_A1(A_U14),	00000,	BR)	/** STOP          stop */
 APUOP(M_STOPD,		RR,	0x140,	"stopd",	_A3(A_T,A_A,A_B),         00111,	BR)	/** STOPD         stop (with register dependencies) */
 APUOP(M_LNOP,		RR,	0x001,	"lnop",		_A0(),		00000,	LNOP)	/** LNOP          no_operation */
 APUOP(M_SYNC,		RR,	0x002,	"sync",		_A0(),		00000,	BR)	/** SYNC          flush_pipe */
@@ -412,8 +412,3 @@ APUOP(M_DFCGT,		RR,	0x2c3,	"dfcgt",	_A3(A_T,A_A,A_B),	00112,	FX2)	/** DFCGT     
 APUOP(M_DFCMGT,		RR,	0x2cb,	"dfcmgt",	_A3(A_T,A_A,A_B),	00112,	FX2)	/** DFCMGT        RT<-(|RA|>|RB|) */
 APUOP(M_DFTSV,		RI7,	0x3bf,	"dftsv",	_A3(A_T,A_A,A_U7),	00012,	FX2)	/** DFTSV         RT<-testspecial(RA,I7) */
 
-#undef _A0
-#undef _A1
-#undef _A2
-#undef _A3
-#undef _A4

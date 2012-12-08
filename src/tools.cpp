@@ -17,12 +17,12 @@ void ReverseBytesInRange( void* data, const char* range_map )
 			*first = *last;
 			*last = tmp;
 			++first;
-			--last;			
+			--last;
 		}
 
 		raw += *range_map;
 		++range_map;
-	}	
+	}
 }
 
 void BitvecSet( void* bits, size_t bitno )
@@ -30,7 +30,7 @@ void BitvecSet( void* bits, size_t bitno )
 	((uint8_t*)bits)[bitno/8] |= ((uint8_t)0x80 >> (bitno % 8));
 }
 
-void BitvecUnset( void* bits, size_t bitno )
+void BitvecClear( void* bits, size_t bitno )
 {
 	((uint8_t*)bits)[bitno/8] &= ~((uint8_t)0x80 >> (bitno % 8));
 }

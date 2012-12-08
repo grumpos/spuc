@@ -105,8 +105,10 @@ namespace spu
 	uint8_t GetFnArgCount( const vector<uint32_t>& Binary, pair<size_t, size_t> FnRange );
 
 	vector<vector<pair<size_t, size_t>>> BuildInitialBlocks( 
-		vector<uint32_t>& Binary, op_distrib_t& Distrib, 
-		size_t /*VirtualBase*/, size_t EntryIndex, 
+		vector<uint32_t>& Binary, 
+		op_distrib_t& Distrib, 
+		size_t /*VirtualBase*/, 
+		size_t EntryIndex, 
 		const std::vector<uint32_t>& FnDynCalls )
 	{	
 		set<size_t> InvalidJumps;
@@ -365,17 +367,6 @@ namespace spu
 			}
 		}
 
-		
-
-		/*vector<uint8_t> FnArgCounts;
-		FnArgCounts.resize(FnRanges.size());
-
-		transform( FnRanges.cbegin(), FnRanges.cend(), FnArgCounts.begin(),
-		[Binary]( pair<size_t, size_t> FnRange )
-		{
-		return GetFnArgCount(Binary, FnRange);
-		});*/
-
 		return FnRanges2;
 	}
 
@@ -385,7 +376,7 @@ namespace spu
 	{
 		// registers 3-74 are used for argument passing
 
-		uint8_t Registers[256] = {0};
+		uint8_t Registers[SPU_OP_INVALID_GPR + 1] = {0};
 		uint8_t ArgCount = 0;
 
 #define CHECK_REG_ARG( gpr )\
@@ -412,7 +403,7 @@ namespace spu
 				Registers[OPComponents.RT] = 1;
 		}
 
-#undef CHECK_REG_ARG
+#undef CHECK_REG_ARG( gpr )
 
 		return ArgCount;
 	}
@@ -420,15 +411,14 @@ namespace spu
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
 	{
 		// TODO: make op_distrib_t use 11 bit integer indexing and a fixed array
-		size_t offset = 0;
+
 		op_distrib_t Distrib;
 		{
 			size_t index = 0;
 
 			for_each( Binary.cbegin(), Binary.cend(),
-				[&Distrib, &index, &offset](uint32_t Instr)
-			{		
-				++offset;
+				[&Distrib, &index](uint32_t Instr)
+			{
 				Distrib[spu_decode_op_mnemonic(Instr)].push_back(index++);
 			});
 		}	
@@ -454,17 +444,17 @@ namespace spu
 		auto& br = Distrib["br"];
 		for_each( br.begin(), br.end(), [&Flags, Binary](size_t Index)
 		{ 
-			Flags[Index] |= SPU_IS_BRANCH; 
+			Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC; 
 
 			const int32_t offset = spu_op_decode_branch_offset(Binary[Index]);
 			Flags[Index + offset] |= SPU_IS_BRANCH_TARGET;
 
-		});		
+		});
 
 		auto& brsl = Distrib["brsl"];
 		for_each( brsl.begin(), brsl.end(), [&Flags, Binary](size_t Index)
 		{ 
-			Flags[Index] |= SPU_IS_BRANCH;
+			Flags[Index] |= SPU_IS_BRANCH | SPU_IS_BRANCH_STATIC;
 
 			const int32_t offset = spu_op_decode_branch_offset(Binary[Index]);
 			Flags[Index + offset] |= SPU_IS_BRANCH_TARGET;
@@ -529,6 +519,18 @@ namespace spu
 				Flags[Index] |= SPU_IS_ASSIGNMENT;\
 		} );
 
+	auto flag_assignment = [&]( string mnem, uint32_t IMM )
+	{
+		auto& filter = Distrib[mnem];
+		for ( uint32_t index : filter )
+		{
+			const SPU_OP_COMPONENTS OPC = spu_decode_op_components( Binary[index] );
+			
+			if ( OPC.IMM == IMM )
+				Flags[index] |= SPU_IS_ASSIGNMENT;
+		}
+	};
+
 		FLAG_ASSIGNMENT( ahi, 0 );
 		FLAG_ASSIGNMENT( ai, 0 );
 		FLAG_ASSIGNMENT( sfhi, 0 );
@@ -553,6 +555,7 @@ namespace spu
 		FLAG_ASSIGNMENT( rotqmbyi, 0 );
 		FLAG_ASSIGNMENT( rotmahi, 0 );
 		FLAG_ASSIGNMENT( rotmai, 0 );
+
 		return Flags;
 	}
 };
