@@ -183,7 +183,7 @@ void spu_insn_process_bin( const vector<uint32_t>& binary,
 //		insn_info.type = spu_decode_op_type( insn );
 		insn_info.comps = spu_decode_op_components( insn );
 		//insn_info.flags = 0;
-		insninfo.emplace_back( insn_info );
+		insninfo.push_back( insn_info );
 	}
 }
 //
@@ -350,7 +350,7 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 	// gather branch targets
 	auto append_targets = [&](string mnem) { 
 		transform( opdistrib[mnem].cbegin(), opdistrib[mnem].cend(), back_inserter(bb_leads),
-			[&](size_t index) { return index + insninfo[index].comps.IMM; } );
+			[&](size_t index) { return (index + insninfo[index].comps.IMM) & 0xffff; } );
 	};
 	append_targets( "br" );
 	append_targets( "brsl" );
@@ -366,20 +366,25 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 	return bb_leads;
 }
 
+static const size_t LSLR = 0x3ffff;
+static const size_t LSLR_INSN = LSLR >> 2;
+
 set<size_t> spu_get_brsl_targets(
 	map<string, vector<size_t>>& histogram,
 	const vector<spu_insn>& insninfo,
 	size_t entry_vaddr )
 {
+
 	set<size_t> vaddr_list;
 
 	vaddr_list.insert( entry_vaddr );
 
 	auto& brsl_offsets = histogram["brsl"];
-	for ( auto& offset : brsl_offsets )
+	for ( auto offset : brsl_offsets )
 	{
 		const spu_insn* insn = &insninfo[offset];
-		vaddr_list.insert( (insn + insn->comps.IMM)->vaddr );
+		const spu_insn* target = &insninfo[(offset + insn->comps.IMM) & 0xffff];
+		vaddr_list.insert( target->vaddr );
 	}
 
 	return vaddr_list;

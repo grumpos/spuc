@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cassert>
 #include "basicblock.h"
 #include "spu_idb.h"
 
@@ -7,33 +9,62 @@ using namespace std;
 
 vector<bb> bb_genblocks( 
 	const vector<size_t>& block_leads,
-	const vector<spu_insn>& insninfo )
+	vector<spu_insn>& insninfo )
 {
 	vector<bb> blocks;
+	vector<spu_insn*> bb_lead_insn;
 
-	blocks.reserve( block_leads.size() - 1 );
+	bb_lead_insn.reserve(block_leads.size());
 
-	for ( size_t b = 0, e = 1; e < block_leads.size(); ++b, ++e )
+	transform(block_leads.begin(), block_leads.end(),
+		back_inserter(bb_lead_insn),
+		[&insninfo](size_t off) -> spu_insn*
 	{
-		const size_t begin_insn_idx = block_leads[b];
-		const size_t end_insn_idx = block_leads[e];
+		return insninfo.data() + off;
+	});
 
-		bb newblock = { 			
-			insninfo.data() + begin_insn_idx, 
-			insninfo.data() + end_insn_idx - 1, 
-			insninfo.data() + end_insn_idx,
-			bbtype::code
-		};
+	blocks.reserve(block_leads.size() - 1);
 
-		blocks.push_back(newblock);
+	// pair-visit neighbors
+	transform(bb_lead_insn.begin(), bb_lead_insn.end() - 1,
+		bb_lead_insn.begin() + 1,
+		back_inserter(blocks),
+		[](spu_insn* first, spu_insn* last) -> bb
+	{
+		bb newblock = { first, last - 1, last, bbtype::code };
+
+		return newblock;
+	});
+
+	//for ( size_t b = 0, e = 1; e < block_leads.size(); ++b, ++e )
+	//{
+	//	const size_t begin_insn_idx = block_leads[b];
+	//	const size_t end_insn_idx = block_leads[e];
+
+	//	bb newblock = { 			
+	//		insninfo.data() + begin_insn_idx, 
+	//		insninfo.data() + end_insn_idx - 1, 
+	//		insninfo.data() + end_insn_idx,
+	//		bbtype::code
+	//	};
+
+	//	blocks.push_back(newblock);
+	//}
+
+	// assign owner blocks to insns
+	for (auto& block : blocks)
+	{
+		for (auto* insn = block.ibegin; insn != block.iend; ++insn)
+		{
+			insn->parent = &block;
+		}
 	}
 
 	return blocks;
 }
 
 void bb_calctypes(
-	vector<bb>& blocks,
-	const vector<spu_insn>& insninfo )
+	vector<bb>& blocks )
 {
 	for ( auto& block : blocks )
 	{
@@ -88,61 +119,332 @@ void bb_calctypes(
 	}
 }
 
-void resolve_tailcall_opt(
-	vector<bb>& blocks,
-	const set<size_t>& fn_entries )
-{
-	for ( auto& block : blocks )
-		{
-			const uint32_t target_vaddr = 
-				block.branch->vaddr + block.branch->comps.IMM * 4;
-			if ( target_vaddr % 8 == 0
-				&& (block.type == bbtype::sjumpf || block.type == bbtype::sjumpb )
-				&& fn_entries.end() != 
-				find( fn_entries.begin(), fn_entries.end(), target_vaddr ) )
-			{
-				block.type = bbtype::scall_ret;
-			}
-		}
-}
-
 void bb_find_unconditional_blocks(
 	vector<bb>& blocks,
-	set<bb*>& blocks_uncond,
-	map<const spu_insn*, bb*>& insn2block )
+	set<bb*>& blocks_uncond )
 {
-	for ( bb* block = &blocks[0]; block != (&blocks[0] + blocks.size()); )
-	{			
-		if ( block->type == bbtype::cjumpf )
+	transform(blocks.begin(), blocks.end(), inserter(blocks_uncond, blocks_uncond.end()),
+		[](bb& block)
+	{
+		return &block;
+	});
+
+	for (auto& block : blocks)
+	{
+		bb* bb_cond_first = nullptr;
+		bb* bb_cond_last = nullptr;
+
+		if ( block.type == bbtype::cjumpf
+			|| block.type == bbtype::cjumpb )
 		{
-			const spu_insn* jmp_target = block->branch + block->branch->comps.IMM;
-			block = insn2block[jmp_target];
+			const spu_insn* jmp_target = block.branch + block.branch->comps.IMM;
+			bb* target_block = jmp_target->parent;
+
+			if ( block.type == bbtype::cjumpf )
+			{
+				bb_cond_first = &block;
+				bb_cond_last = target_block + 1;
+			}
+			else
+			{
+				bb_cond_first = target_block;
+				bb_cond_last = &block + 1;
+			}
 		}
-		else
+
+		while (bb_cond_first != bb_cond_last)
+		{
+			blocks_uncond.erase(bb_cond_first++);
+		}
+	}
+
+	//for ( bb* block = &blocks[0]; block != (&blocks[0] + blocks.size()); )
+	//{			
+	//	if ( block->type == bbtype::cjumpf )
+	//	{
+	//		const spu_insn* jmp_target = block->branch + block->branch->comps.IMM;
+	//		block = jmp_target->parent;
+	//	}
+	//	else
+	//	{ 
+	//		blocks_uncond.insert(block);
+	//		++block;
+	//	}
+	//}
+
+	//// remove blocks that belong to while() constructs
+	//for ( bb* block = &blocks[blocks.size()-1]; block != &blocks[0]; )
+	//{
+	//	if ( block->type == bbtype::cjumpb )
+	//	{
+	//		const spu_insn* jmp_target = block->branch + block->branch->comps.IMM;
+	//		bb* target_block = jmp_target->parent;
+	//		while ( block != target_block )
+	//		{
+	//			blocks_uncond.erase(block);
+	//			--block;
+	//		}
+	//		--block;
+	//	}
+	//	else
+	//	{ 
+	//		--block;
+	//	}
+	//}
+}
+
+vector<fn> bb_genfn(vector<bb>& blocks,
+					const vector<spu_insn>& insninfo,
+					const set<size_t>& brsl_targets)
+{
+	/*** Finding function boundaries using basic blocks
+
+	Assuming we have no symbol info for a given binary we need to 
+	calucate the function boundaries using the basic blocks only.
+	Two lists are kept:
+	* known function entry points
+	* known function exit points
+	We also have a function that walks both and equalizes them,
+	since ever function entry is preceded by an exit and vice versa.
+
+	1>>>
+	Seed the entry list.
+	<SPU>: For the entntry points we can use the targets of brsl ops.
+	Those are the equivalents of a static function call.
+		
+	2>>>
+	Filter the basic blocks for dominators.
+	By definition, a function must terminate with an op that always
+	braks control flow. Thus it can't belong to a basic block that might
+	or might not get executed. For example it can't be part of an 'if' 
+	statement's body.
+	What we need then is to filter out all the basic blocks that are
+	conditionally entered.
+	For every static conditional jump, remove the jump itself and
+	anything between the jump destionation plus the destination itself.
+
+	3>>>
+	Seed the exit list.
+	Once we have these dominator basic blocks, search them for ops that
+	stop/redirect the control flow for sure, like returns.
+	<SPU>: The ops: stop, stopd, bi, br #0, 
+
+	4>>>
+	Resolve static unconditional jumps
+	Sometimes functions end wit ha simple jump, either because there is a 
+	pre-tested loop at the end of the function or tail call optimization.
+	To decide wether a jump terminates a function, we use these simple 
+	criteria. The jump teriminates a function if:
+	* it is a known exit
+	* it is followed by a known entry
+	* its destination is a known entry
+	* its destination is preceded by a known exit
+	Any of these being true means they are all true and can be added to 
+	the lists. Of course we might get out of bounds of the basic block array
+	but those are discarded later.
+	<SPU>: Since functions must be 8 byte aligned, there often is an lnop
+	between functions. These need to be recognized and skipped when we are
+	looking at next and previous blocks.
+	*/
+
+	// Remove basic blocks that belong to if()/while() constructs.
+	// Blocks that remain are guaranted to contain only control flow 
+	// breakers or reversers that will terminate a function.
+	// Returns in in() blocks are discarded.
+	set<bb*> blocks_uncond;
+
+	bb_find_unconditional_blocks( blocks, blocks_uncond );
+
+	set<bb*> known_fn_entries;
+	set<bb*> known_fn_exits;
+
+	{
+		/* bbtype::ret
+		// ...
+		return ...;
+		}
+		*/
+
+		/* bbtype::stop
+		// ...
+		// suspend thread
+		}
+		*/
+
+		/* bbtype::infloop
+		// ...
+		while (1)
+		{
+		};
+		}
+		*/
+		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
+			inserter(known_fn_exits, known_fn_exits.end()),
+			[](bb*const& block) 
 		{ 
-			blocks_uncond.insert(block);
+			return block->type == bbtype::infloop
+				|| block->type == bbtype::stop
+				|| block->type == bbtype::ret; 
+		});	
+	}
+
+	for ( auto entry_vaddr : brsl_targets )
+	{
+		auto insn_index = (entry_vaddr - insninfo[0].vaddr) / 4;
+
+		auto insn = &insninfo[insn_index];
+
+		// by definition, the destination of a brsl call will be the first
+		// insn of a basic block
+		known_fn_entries.insert(insn->parent);
+	}
+
+	auto is_dword_aligned = [](const bb* block)
+	{
+		return 0 == block->ibegin->vaddr % 8;
+	};
+
+	auto next_not_lnop = [&](bb* block) -> bb*
+	{
+		bb* next_block = block + 1;
+
+		if (1 == bb_insn_count(next_block)
+			&& next_block->ibegin->op == spu_op::M_LNOP)
+		{
+			++next_block;
+		}
+
+		return next_block;
+	};
+
+	auto prev_not_lnop = [&](bb* block) -> bb*
+	{
+		bb* prev_block = block - 1;
+
+		if (1 == bb_insn_count(prev_block)
+			&& prev_block->ibegin->op == spu_op::M_LNOP)
+		{
+			--prev_block;
+		}
+
+		return prev_block;
+	};
+
+	auto is_fn_entry = [&](bb* block)
+	{
+		const bool aligned = is_dword_aligned(block);
+		const bool preceded_by_exit = 
+			(known_fn_exits.cend() != find(known_fn_exits.cbegin(), known_fn_exits.cend(), prev_not_lnop(block)));
+		return aligned && preceded_by_exit;
+	};
+
+	auto is_fn_exit = [&](bb* block)
+	{
+		const bb* next_block = next_not_lnop(block);
+		const bool next_aligned = is_dword_aligned(next_block);
+		const bool followed_by_entry = 
+			(known_fn_entries.cend() != find(known_fn_entries.cbegin(), known_fn_entries.cend(), next_block));
+		return next_aligned && followed_by_entry;
+	};
+		
+	auto recalc_boundaries = [&]()
+	{
+		size_t entry_count = 0;
+		size_t exit_count = 0;
+
+		do 
+		{
+			entry_count = known_fn_entries.size();
+			exit_count = known_fn_exits.size();
+
+			for (auto entry : known_fn_entries)
+			{
+				known_fn_exits.insert(prev_not_lnop(entry));
+			}
+
+			for (auto exit : known_fn_exits)
+			{
+				known_fn_entries.insert(next_not_lnop(exit));
+			}
+				
+		} while (entry_count != known_fn_entries.size()
+			|| exit_count != known_fn_exits.size());
+	};
+
+	recalc_boundaries();
+
+	{
+		set<bb*> fn_term_block_sjumpf;
+
+		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
+			inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
+			[](bb*const& block) { return block->type == bbtype::sjumpf; });
+
+		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
+			inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
+			[](bb*const& block) { return block->type == bbtype::sjumpb; });
+
+		for (auto block : fn_term_block_sjumpf)
+		{
+			bb* target_block = (block->branch + block->branch->comps.IMM)->parent;
+
+			if (is_fn_exit(block) 
+				|| is_fn_entry(next_not_lnop(block))
+				|| is_fn_entry(target_block) 
+				|| is_fn_exit(prev_not_lnop(target_block)))
+			{
+				const size_t entry_old_size = known_fn_entries.size();
+				const size_t exit_old_size = known_fn_exits.size();
+
+				known_fn_exits.insert(block);
+				known_fn_entries.insert(target_block);
+
+				if (entry_old_size != known_fn_entries.size()
+					|| exit_old_size != known_fn_exits.size())
+				{
+					recalc_boundaries();
+				}
+			}
+
+			//if (is_fn_entry(target_block) 
+			//	|| is_fn_exit(prev_not_lnop(target_block)))
+			//{
+			//	known_fn_exits.insert(block);
+			//	known_fn_entries.insert(target_block);
+
+			//	recalc_boundaries();
+			//}
+		}
+	}
+
+	// drop false positives
+	// TODO: feels like a guesswork hack. try to get rid of this
+	known_fn_exits.erase(known_fn_exits.begin());
+	known_fn_entries.erase(--known_fn_entries.end());
+
+	vector<fn> functions;
+
+	functions.reserve(known_fn_entries.size());
+
+	transform(known_fn_entries.begin(), known_fn_entries.end(),
+		known_fn_exits.begin(),
+		back_inserter(functions),
+		[](bb* entry, bb* exit) -> fn 
+	{
+		fn new_fn = { entry, exit };
+		return new_fn;
+	});
+
+	for (auto& fun : functions)
+	{
+		bb* block = fun.entry;
+		bb* block_last = fun.exit + 1;
+		while (block != block_last)
+		{
+			block->parent = &fun;
 			++block;
 		}
 	}
 
-	// remove blocks that belong to while() constructs
-	//		for ( auto block : blocks_no_fwd_jmp )
-	for ( bb* block = &blocks[blocks.size()-1]; block != &blocks[0]; )
-	{
-		if ( block->type == bbtype::cjumpb )
-		{
-			const spu_insn* jmp_target = block->branch + block->branch->comps.IMM;
-			bb* target_block = insn2block[jmp_target];
-			while ( block != target_block )
-			{
-				blocks_uncond.erase(block);
-				--block;
-			}
-			--block;
-		}
-		else
-		{ 
-			--block;
-		}
-	}
+	return functions;
 }

@@ -3,34 +3,31 @@
 #include <algorithm>
 #include <iostream>
 #include <set>
-#include <iterator>
-#include <iomanip>
-#include <intrin.h>
-#include <stack>
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <functional>
-#include <memory>
 #include <map>
 #include <cassert>
+#include <memory>
 #include "spu_idb.h"
 #include "elf.h"
-//#include "raw.h"
 #include "elf_helper.h"
 #include "basic_blocks.h"
 #include "src_file.h"
-#include "spu_pseudo.h"
 #include "basicblock.h"
-#include "string_tools.h"
+#include "fn.h"
 
 using namespace std;
 
 struct cfgnode
 {
-	vector<cfgnode*> pred;
-	bb* block;
+	cfgnode()
+		: block(nullptr) 
+	{}
+
+	vector<cfgnode*> pred;	
 	vector<cfgnode*> succ;
+	bb* block;
 };
 
 void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
@@ -80,18 +77,6 @@ void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistri
 	GatherRelAddresses( "stqr", RelStoreTargets );
 }
 
-//struct edge
-//{
-//	shared_ptr<bb> src;
-//	shared_ptr<bb> dst;
-//};
-//
-//struct node
-//{
-//	vector<shared_ptr<edge>> pred;
-//	vector<shared_ptr<edge>> succ;
-//	shared_ptr<bb> block;
-//};
 
 string print_bb( const bb& block )
 {
@@ -107,42 +92,103 @@ string print_bb( const bb& block )
 	return oss.str();
 }
 
-vector<uint8_t> LoadFileBin( int argc, char** argv );
+vector<uint8_t> LoadFileBin( string path );
 
-
-struct fn
+struct fn_sym
 {
-	const bb* entry;
-	const bb* exit;
+	string name;
 };
 
 
-int main( int argc, char** argv )
+
+struct spu_image_info
 {
-	vector<uint8_t> ELFFile = LoadFileBin(argc, argv);
+	uint32_t imgsize;
+	uint32_t txt_off;
+	uint32_t txt_len;
+	uint32_t data_off;
+	uint32_t data_len;
+};
+
+const string OSFolder = "F:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\";
+
+
+vector<uint32_t> LoadBootloaderBin()
+{
+	ifstream iff( (OSFolder + "bootldr.elf").c_str(), 
+		ios::in | ios::binary );
+	const size_t filesize = iff.tellg();
+	vector<uint32_t> BootldrImg;
+	BootldrImg.resize( (0x40000  - 0x400) / sizeof(uint32_t) );
+	iff.seekg( 0x400 );
+	iff.read( (char*)BootldrImg.data(), 0x40000 - 0x400 );
+	iff.close();
+	return BootldrImg;
+}
+
+
+
+
+int main( int /*argc*/, char** /*argv*/ )
+{
+	vector<uint8_t> ELFFile = LoadFileBin((OSFolder + "lv1ldr.elf").c_str());
+
+	//ElfFile<SPU_ELF> ELFFile2((OSFolder + "bootldr.elf").c_str(), 0x29480);
+	ElfFile<SPU_ELF> ELFFile2((OSFolder + "lv1ldr.elf").c_str(), 0);
+
+	//auto internalELF = elf::EnumEmbeddedSPUOffsets(ELFFile);
+
 
 	vector<uint32_t> SPUBinary;
-	size_t EntryIndex = 0;
+	vector<uint8_t> BootldrData;
+	BootldrData.resize(0x40000 - 0x22000 - 0x400);
+	
+//	size_t EntryIndex = 0;
 	size_t vbase = 0;
 	uint8_t* SPU0 = (uint8_t*)ELFFile.data();// + SPUELFOffsets[0];
 	{
 		elf::HeadersToSystemEndian( SPU0 );
 
-		SPUBinary = elf::spu::LoadExecutable( SPU0 );
+		//SPUBinary = elf::spu::LoadExecutable( SPU0 );
+		SPUBinary = LoadBootloaderBin();
+
+		memcpy(BootldrData.data(), (const uint8_t*)SPUBinary.data() + 0x22000, BootldrData.size());
 
 		for ( size_t i = 0; i != SPUBinary.size(); ++i )
 		{
 			SPUBinary[i] = _byteswap_ulong(SPUBinary[i]);
 		}
 
-		EntryIndex = elf::EntryPointIndex( SPU0 );
+//		EntryIndex = elf::EntryPointIndex( SPU0 );
 
-		vbase = elf::VirtualBaseAddr( SPU0 );
+		vbase = 0x400;
+		//vbase = elf::VirtualBaseAddr( SPU0 );
 	}
 
-	// Isolate binary from data
+	/*string disasm;
 
-	SPUBinary.resize( 0x190C0 / 4 ); // FIXME hardcoded for now
+	for (auto op : SPUBinary)
+	{
+		std::string spu_disassemble( uint32_t instr_raw );
+
+		disasm += spu_disassemble(op) += "\n";
+	}
+
+	ofstream bootldrdis("F:\\boot.dis");
+	bootldrdis << disasm;
+	bootldrdis.close();*/
+
+
+
+	
+	
+	
+
+	SPUBinary.resize( 0x22000 / 4 ); // FIXME hardcoded for now bootldr
+	//SPUBinary.resize( 0x190C0 / 4 ); // FIXME hardcoded for now lv1ldr
+	//SPUBinary.resize( 0x12ef0 / 4 ); // FIXME hardcoded for now lv2ldr
+
+	
 
 	vector<spu_insn> insninfo;
 	{
@@ -154,392 +200,199 @@ int main( int argc, char** argv )
 		OPDistrib = spu::GatherOPDistribution( SPUBinary );
 	}
 
-	//spu_insn_process_flags( insninfo, OPDistrib );
+	//spuGatherLoads( SPUBinary, OPDistrib, vbase );
 
 	set<size_t> brsl_targets = spu_get_brsl_targets(OPDistrib, insninfo, vbase);
-
-	//t<size_t> br_targets = spu_get_br_targets(OPDistrib, insninfo);
 
 	vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
 		OPDistrib, insninfo );
 
 	vector<bb> blocks = bb_genblocks( bb_leads, insninfo );
 
-	bb_calctypes( blocks, insninfo );
+	bb_calctypes( blocks );
 
-	// helper
-	map<const spu_insn*, bb*> insn2block;
+	//ifstream disasm_file("F:\\Dropbox\\lv1ldr.dis");
+	//assert(disasm_file.is_open());
+	//string line;
+	//do { getline(disasm_file, line); } while (line.find("12c00:") == string::npos);
+	//vector<string> bin_disasm;
+	//bin_disasm.push_back(line);
+	//while (getline(disasm_file, line)) { bin_disasm.push_back(line); }
+
+	vector<fn> functions = bb_genfn(blocks, insninfo, brsl_targets);
+
+	// scan function insns for register usage
+	// registers 3-74 are used for argument passing
+	// any register that is used as source operand before it was
+	// used as destination operand must be a function argument
+	for (auto& fun : functions)
 	{
-		for ( auto& block : blocks )
+		// unused operands have index SPU_OP_INVALID_GPR
+		// allocating enough space for this index removes lots of ifs
+		uint8_t Registers[SPU_OP_INVALID_GPR + 1] = {0};
+		uint8_t ArgCount = 0;
+
+		auto check_gpr = [&Registers, &ArgCount](uint8_t gpr)
 		{
-			insn2block.insert(make_pair(block.ibegin, &block));
-		}
-	}
-
-	{
-
-
-		/*
-		needs a two-phase solution.
-		look for fn lead blocks and fn exit blocks.
-		one can be deriver from the other.
-		keep calculating the two until no more fn range is found?
-		*/
-
-		/*
-		scan static fn entry points
-		find the terminators right before them
-		if it's sjump, see if they cross over prev or next
-		if they do, it's a tailcall opt.
-		*/
-		//vector<size_t> fn_entry_vaddr;
-
-		//fn_entry_vaddr.assign( brsl_targets.begin(), brsl_targets.end() );
-
-		// check for tail call opt.
-
-		//resolve_tailcall_opt( blocks, br_tailopt_targets );
-
-		/***
-		-Function Terminators
-
-		Every function must have an unconditional terminator.
-		This means that it has to be a point in the code that
-		can not be skipped.
-		Thus anything that can be skipped by either a forward
-		unconditional jump (if construct) or a backward 
-		unconditional jump (do-while construct) can be 
-		disregarded when searching for function terminators.
-		*/
-
-
-		// By default, we can't assume that ever return or like will terminate
-		// a function because of early exit.
-
-
-		// Remove basic blocks that belong to if()/while() constructs.
-		// Blocks that remain are guaranted to contain only control flow 
-		// breakers or reversers that will terminate a function.
-		// Returns in in() blocks are discarded.
-		set<bb*> blocks_uncond;
-
-		bb_find_unconditional_blocks( blocks, blocks_uncond, insn2block );
-
-		set<bb*> fn_term_blocks;		
-
-		set<bb*> fn_entry_block;
-		{
-			// Gather in here blocks that are right after a control flow
-			// stopper or reverser.
-
-			/*
-			// ...
-			return ...;
-			}
-			*/
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_blocks, fn_term_blocks.end()),
-				[](bb*const& block) { return block->type == bbtype::ret; });
-
-			/*
-			// ...
-			// suspend thread
-			}
-			*/
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_blocks, fn_term_blocks.end()),
-				[](bb*const& block) { return block->type == bbtype::stop; });
-
-			/*
-			// ...
-			while (1)
+			const bool is_arg_reg = gpr > 2 && gpr < 75;
+			
+			if (is_arg_reg && !Registers[gpr])
 			{
-			};
+				ArgCount = max<uint8_t>( gpr - 2, ArgCount );
 			}
-			*/
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_blocks, fn_term_blocks.end()),
-				[](bb*const& block) { return block->type == bbtype::infloop; });
-
-			/*
-			// ...
-			while (...)
-			{
-			// ...
-			return ...;
-			};
-			}
-			*/
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_blocks, fn_term_blocks.end()),
-				[](bb*const& block) { return block->type == bbtype::sjumpb; });
-
-			fn_entry_block.insert(&blocks[0]);
-
-			// Skip over all the lnop filler blocks
-			for ( auto block : fn_term_blocks )
-			{
-				auto bb_fn_entry = block + 1;
-
-				if (bb_fn_entry == (&blocks[0] + blocks.size()))
-					continue;
-
-				// skip lnop fillers between function bodies
-				while (bb_fn_entry->ibegin->op == spu_op::M_LNOP 
-					&& bb_fn_entry->ibegin->vaddr % 8 != 0
-					&& bb_insn_count(bb_fn_entry) == 1)
-				{
-					++bb_fn_entry;
-				}
-
-				fn_entry_block.insert(bb_fn_entry);
-			}			
-		}
-
-		// turn known fn entry blocks into vaddrs
-		set<size_t> fn_entry_after_term;
-		{
-			fn_entry_after_term.insert(brsl_targets.begin(), brsl_targets.end());
-
-
-			for ( auto block : fn_entry_block )
-			{
-				fn_entry_after_term.insert(block->ibegin->vaddr);
-			}
-		}
-
-		// Tail Call Optimisation: jumps that jump to a function
-		// without setting up stack or argument passing
-		// WARNING: this will give false positives on dead code that is 
-		//			jumped over
-
-		/*
-		Now only unconditional jumps remain.
-		Backward jumps:
-		* On one hand, these are always function terminators.
-		* On the other hand, it's not obvious if they are just part of a loop
-		or a TCO to a function earlier in the binary.
-		* We now have a base set of function entry point. If the backwad jump target
-		is earlier than the function entry point right before the jump, 
-		then it's a TCO for sure.
-		* Must jump to a mod8 address to be considered TCO
-		Forward jumps:
-		* Could be a TCO or a jump into a loop's conditional check.
-		* If the target of the jump is beyond the next upcoming function entry
-		point in the binary then it's sure to be a TCO.
-		* Must jump to a mod8 address to be considered TCO
-		*/
-
-		auto is_dword_aligned = [](bb* block)
-		{
-			return 0 == block->ibegin->vaddr % 8;
 		};
 
-		set<size_t> fn_entry_candidates;
-
+		for (spu_insn* insn = fun.entry->ibegin; insn != fun.exit->iend; ++insn)
 		{
-			set<bb*> fn_term_block_sjumpf;
-			set<bb*> TCO_blocks;
-			set<bb*> TCO_targets;
+			SPU_OP_COMPONENTS& OPComp = insn->comps;
 
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
-				[](bb*const& block) { return block->type == bbtype::sjumpf; });
+			check_gpr(OPComp.RA);
+			check_gpr(OPComp.RB);
+			check_gpr(OPComp.RC);
 
-			copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-				inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
-				[](bb*const& block) { return block->type == bbtype::sjumpb; });
-
-			for (auto block : fn_term_block_sjumpf)
-			{
-				const size_t target_vaddr = block->branch->vaddr + block->branch->comps.IMM * 4;
-
-				// 1) must jump to modulo8 address
-				if (target_vaddr % 8 != 0)
-					continue;
-
-				// instant pass if it jumps to an already known fn entry
-				if (fn_entry_after_term.end() != 
-					find(fn_entry_after_term.begin(), fn_entry_after_term.end(), target_vaddr))
-					continue;
-
-				// 2) must not jump INTO "conditional" block
-				//	  It can jump to a first block of a conditional section, however.
-				//	  The latter can be a function that is just a do-while().
-				bb* target_block = insn2block[block->branch + block->branch->comps.IMM];
-				const bool target_in_conditional = 
-					blocks_uncond.cend() == 
-					find(blocks_uncond.cbegin(), blocks_uncond.cend(), target_block);
-				const bool prev_in_conditional = 
-					blocks_uncond.cend() == 
-					find(blocks_uncond.cbegin(), blocks_uncond.cend(), target_block - 1);
-				if (target_in_conditional && prev_in_conditional)
-					continue;
-
-				// 3) target must be preceded by a valid fn terminator
-				bb* prev_block = target_block - 1;
-
-				if (1 == bb_insn_count(prev_block)
-					&& prev_block->ibegin->op == spu_op::M_LNOP)
-				{
-					--prev_block;
-				}
-
-				if (fn_term_blocks.cend() == 
-					find(fn_term_blocks.cbegin(), fn_term_blocks.cend(), prev_block))
-				{
-					continue;
-				}
-
-				
-				TCO_blocks.insert(block);
-				TCO_targets.insert(target_block);
-				fn_entry_candidates.insert(target_block->ibegin->vaddr);
-			}
+			// flag register as written
+			Registers[OPComp.RT] = 1;
 		}
 
-		// TODO
-		// iterate over fn entry pairs. they make up a possible function
-		// every static unconditional that leaves its parent function
-		// becomes a TCO jump and jumps to a function lead block
-		// jump before fn entry or jump after itself
-		// forward jumps might be jumping over dead code but we assume those were
-		// elimenated at the oroginal compilation
-		// this should work since every TCO jump must be preceded by an
-		// unconditional function terminator
-		// no chance for mistaking a TCO jump for a do..while()
-
-
-		vector<fn> functions;
-
-		for ( auto fn_entry_vaddr : fn_entry_after_term )
-		{
-			const spu_insn* entry_insn = &insninfo[(fn_entry_vaddr - vbase) / 4];
-			const bb* entry_block = insn2block[entry_insn];
-			fn new_fn = { entry_block, entry_block };
-			functions.push_back(new_fn);
-		}
-
-		// adjust fn exits. skip lnops
-		for (size_t ii = 0; ii < functions.size() - 1; ++ ii)
-		{
-			fn* function = &functions[ii];
-			const fn* function_next = &functions[ii+1];
-			const bb* function_exit_block = function_next->entry - 1;
-
-			while (function_exit_block->ibegin->op == spu_op::M_LNOP 
-				&& bb_insn_count(function_exit_block) == 1)
-			{
-				--function_exit_block;
-			}
-
-			function->exit = function_exit_block;
-		}
-
-		functions[functions.size()-1].exit = blocks.data() + blocks.size();
-
-
-		for (auto function : functions)
-		{
-			if (function.exit->type == bbtype::sjumpb || function.exit->type == bbtype::sjumpf)
-			{
-				const spu_insn* target_insn = 
-					function.exit->branch + function.exit->branch->comps.IMM;
-
-				if (target_insn->vaddr < function.entry->ibegin->vaddr
-					|| target_insn->vaddr >= function.exit->iend->vaddr)
-				{
-					fn_entry_after_term.insert(target_insn->vaddr);
-				}
-			}
-		}
-
-		// blocks can't be terminators either if...
-		set<bb*> code_only;
-		// ...they don't change the control flow.
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::code; });
-		// ...are calls. They eventually return and continue.
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::scall
-			|| block->type == bbtype::dcall; });
-		// ...actually are known function begins.
-
-		// ...actually are known returns. ???
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::ret; });
-		// ...leftover if statements.
-
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::cjumpf; });
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::cjumpb; });
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(code_only, code_only.end()),
-			[](bb*const& block) { return block->type == bbtype::cdjump; });
-
-		set<bb*> best_cand;
-		set_difference(blocks_uncond.begin(), blocks_uncond.end(),
-			code_only.begin(), code_only.end(),
-			inserter(best_cand, best_cand.end()));
-
-		set<size_t> fne_new;
-
-		for ( auto block : best_cand )
-		{
-			if (block->type == bbtype::sjumpb || block->type == bbtype::sjumpf)
-			{
-				const size_t target_vaddr = ((block + block->branch->comps.IMM) - &blocks[0]) * 4 + vbase;
-				if (target_vaddr % 8 == 0)
-					fne_new.insert(target_vaddr);
-			}
-		}
+		fun.argcnt = ArgCount;
 	}
 
-	vector<uint32_t> LS(0x40000/4);
-	elf::spu::LoadImage( (uint8_t*)&LS[0], SPU0 );
+	//auto old_entries = known_fn_entries;
 
-	set<size_t> Ctors;
-	std::vector<uint32_t> FnCalls;
-	set<size_t> Text;
-	set<string> TextString;
+	//for (auto function : functions)
+	//{
+	//	if (function.exit->type == bbtype::sjumpb || function.exit->type == bbtype::sjumpf)
+	//	{
+	//		const spu_insn* target_insn = 
+	//			function.exit->branch + function.exit->branch->comps.IMM;
+	//		if (target_insn->vaddr < function.entry->ibegin->vaddr
+	//			|| target_insn->vaddr >= function.exit->iend->vaddr)
+	//		{
+	//			//fn_entry_after_term.insert(target_insn->vaddr);
+	//			known_fn_entries.insert(insn2block[target_insn]);
+	//		}
+	//	}
+	//}
+		
+	set<const spu_insn*> unused_insn;
+	set<bool> dumper;
+
+	transform(functions.begin(), functions.end()-1,
+		functions.begin()+1,
+		inserter(dumper, dumper.end()),
+		[&](const fn& a, const fn& b)
 	{
-		for ( size_t i = 0; i < LS.size(); i += 4 )
-		{
-			if ( PossibleCtorDtorList( i, LS, FnCalls ) )
-			{
-				Ctors.insert( (4 * i) );
-			}
+		auto en = a.exit->iend;
+		auto ex = b.entry->ibegin;
+		while (en != ex)
+			unused_insn.insert(en++);
 
-			if ( PossibleString( i, LS ) )
+		return false;
+	});
+		
+
+/*	decltype(known_fn_entries) dff;
+	set_difference(known_fn_entries.begin(), known_fn_entries.end(),
+		old_entries.begin(), old_entries.end(),
+		inserter(dff, dff.end()));*/
+
+	auto cfg_connect = [](cfgnode& a, cfgnode& b)
+	{
+		a.succ.push_back(&b);
+		b.pred.push_back(&a);
+
+	};
+
+	cfgnode root;
+	vector<cfgnode> nodelist;
+	nodelist.reserve(blocks.size());
+
+	for (auto& fun : functions)
+	{
+		if (fun.exit->type == bbtype::sjumpf 
+			|| fun.exit->type == bbtype::sjumpb)
+		{
+			auto jump_target = (fun.exit->branch + fun.exit->branch->comps.IMM)->parent;
+
+			if (jump_target < fun.entry || jump_target > fun.exit)
 			{
-				Text.insert( (4 * i) );
-				TextString.insert( (const char*)LS.data() + (4 * i) );
+				fun.exit->type = bbtype::ret_tco;
 			}
 		}
 	}
 
-	auto FnRanges = spu::BuildInitialBlocks( 
-		SPUBinary, OPDistrib, elf::VirtualBaseAddr(SPU0), 
-		EntryIndex, FnCalls );
+	for (auto& block : blocks)
+	{
+		cfgnode newnode;
+		newnode.block = &block;
+		nodelist.push_back(newnode);
+	}
 
-	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
+	for (auto& fun : functions)
+	{
+		const size_t entry_offset = fun.entry - &blocks[0];
+		cfg_connect(root, nodelist[entry_offset]);
+	}
+
+	for ( size_t ii = 0; ii < nodelist.size(); ++ii )
+	{
+		bb* block = nodelist[ii].block;
+		switch (block->type)
+		{
+		case bbtype::code:
+			{
+				cfg_connect(nodelist[ii], nodelist[ii + 1]);
+				break;
+			}
+		case bbtype::sjumpf:
+		case bbtype::sjumpb:
+			{
+				bb* from = nodelist[ii].block;
+				bb* to = (from->branch + from->branch->comps.IMM)->parent;
+				cfg_connect(nodelist[ii], nodelist[ii + (to - from)]);
+				break;
+			}
+		case bbtype::cjumpf:
+		case bbtype::cjumpb:
+			{
+				bb* from = nodelist[ii].block;
+				bb* to = (from->branch + from->branch->comps.IMM)->parent;
+				cfg_connect(nodelist[ii], nodelist[ii + (to - from)]);
+				cfg_connect(nodelist[ii], nodelist[ii + 1]);
+				break;
+			}
+		case bbtype::scall:
+		case bbtype::dcall:
+			{
+				cfg_connect(nodelist[ii], nodelist[ii + 1]);
+				break;
+			}
+		default:
+			break;
+		}
+	}
+
+	vector<spu_insn*> uncalled;
+	for (auto& node : nodelist)
+	{
+		if (node.pred.empty() && node.block->ibegin->op != spu_op::M_LNOP)
+		{
+			uncalled.push_back(node.block->ibegin);
+		}
+	}
+
+	
+
+/*	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
-
+	*/
 	return 0;
 }
 
-vector<uint8_t> LoadFileBin( int argc, char** argv )
+vector<uint8_t> LoadFileBin( string path )
 {
 	vector<uint8_t> ELFFile;
 	{
-		const string path( (argc > 1) ? argv[1] : 
-			"F:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\lv1ldr.elf" );
 		ifstream iff( path.c_str(), ios::in | ios::ate | ios::binary );
 		const size_t filesize = iff.tellg();
 		ELFFile.resize( filesize );

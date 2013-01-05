@@ -7,19 +7,61 @@
 #include <intrin.h>
 //#include <vector>
 
+#define _BF_FIELD(bits, field1) uint##bits##_t field1;
+
+#ifdef _WIN32
+#define _BF_BE1(bits, field1) \
+	struct { _BF_FIELD(bits, field1) }
+#define _BF_BE2(bits, field1, field2) \
+	struct { _BF_FIELD(bits, field2) _BF_FIELD(bits, field2) }
+#define _BF_BE3(bits, field1, field2, field3) \
+	struct { _BF_FIELD(bits, field3) _BF_FIELD(bits, field2) _BF_FIELD(bits, field1) }
+#define _BF_BE4(bits, field1, field2, field3, field4) \
+	struct { _BF_FIELD(bits, field4) _BF_FIELD(bits, field3) _BF_FIELD(bits, field2) _BF_FIELD(bits, field1) }
+#define _BF_BE5(bits, field1, field2, field3, field4, field5) \
+	struct { _BF_FIELD(bits, field5) _BF_FIELD(bits, field4) _BF_FIELD(bits, field3) _BF_FIELD(bits, field2) _BF_FIELD(bits, field1) }
+#else
+#define _BF_BE1(bits, field1) \
+	struct { _BF_FIELD(bits, field1) }
+#define _BF_BE2(bits, field1, field2) \
+	struct { _BF_FIELD(bits, field1) _BF_FIELD(bits, field2) }
+#define _BF_BE3(bits, field1, field2, field3) \
+	struct { _BF_FIELD(bits, field1) _BF_FIELD(bits, field2) _BF_FIELD(bits, field3) }
+#define _BF_BE4(bits, field1, field2, field3, field4) \
+	struct { _BF_FIELD(bits, field1) _BF_FIELD(bits, field2) _BF_FIELD(bits, field3) _BF_FIELD(bits, field4) }
+#define _BF_BE5(bits, field1, field2, field3, field4, field5) \
+	struct { _BF_FIELD(bits, field1) _BF_FIELD(bits, field2) _BF_FIELD(bits, field3) _BF_FIELD(bits, field4) _BF_FIELD(bits, field5) }
+#endif
+
 union SPU_INSTRUCTION
 {
-	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t RB : 7;						uint32_t OP : 11; } RR;
-	struct { uint32_t RC : 7; uint32_t RA : 7;		uint32_t RB : 7; uint32_t RT : 7; 		uint32_t OP : 4; } RRR;
-	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I7 : 7;						uint32_t OP : 11; } RI7;
-	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I8 : 8;						uint32_t OP : 10; } RI8;
-	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I10 : 10;						uint32_t OP : 8; } RI10;
-	struct { uint32_t RT : 7; uint32_t I16 : 16; 									  		uint32_t OP : 9; } RI16;
-	struct { uint32_t RT : 7; uint32_t I18 : 18; 									  		uint32_t OP : 7; } RI18;
-	struct { uint32_t ROL : 7; uint32_t I16 : 16;	uint32_t ROH : 2; 						uint32_t OP : 7; } LBT;
-	struct { uint32_t ROL : 7; uint32_t RA : 7;		uint32_t ROH : 2; uint32_t unused : 5;	uint32_t OP : 11; } LBTI;
+	_BF_BE5( 32,  OP : 4,	RT : 7,		RB : 7,  RA : 7,  RC : 7 ) RRR;
+	_BF_BE4( 32,  OP : 11,	RB : 7,		RA : 7,			RT : 7 ) RR;
+	_BF_BE4( 32,  OP : 11,	I7 : 7,		RA : 7,			RT : 7 ) RI7;
+	_BF_BE4( 32,  OP : 10,	I8 : 8,		RA : 7,			RT : 7 ) RI8;
+	_BF_BE4( 32,  OP : 8,	I10 : 10,	RA : 7,			RT : 7 ) RI10;
+	_BF_BE3( 32,  OP : 9,	I16 : 16,					RT : 7 ) RI16;
+	_BF_BE3( 32,  OP : 7,	I18 : 18,					RT : 7 ) RI18;
+	_BF_BE4( 32,  OP : 7,	ROH : 2,	I16 : 16, ROL : 7 )	LBT;
+	_BF_BE5( 32,  OP : 11,	reserved : 5, ROH : 2, RA : 7, ROL : 7 ) LBTI;
 	uint32_t Instruction;
 };
+
+static_assert(sizeof(SPU_INSTRUCTION) == 4, "");
+
+//union SPU_INSTRUCTION
+//{
+//	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t RB : 7;						uint32_t OP : 11; } RR;
+//	struct { uint32_t RC : 7; uint32_t RA : 7;		uint32_t RB : 7; uint32_t RT : 7; 		uint32_t OP : 4; } RRR;
+//	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I7 : 7;						uint32_t OP : 11; } RI7;
+//	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I8 : 8;						uint32_t OP : 10; } RI8;
+//	struct { uint32_t RT : 7; uint32_t RA : 7;		uint32_t I10 : 10;						uint32_t OP : 8; } RI10;
+//	struct { uint32_t RT : 7; uint32_t I16 : 16; 									  		uint32_t OP : 9; } RI16;
+//	struct { uint32_t RT : 7; uint32_t I18 : 18; 									  		uint32_t OP : 7; } RI18;
+//	struct { uint32_t ROL : 7; uint32_t I16 : 16;	uint32_t ROH : 2; 						uint32_t OP : 7; } LBT;
+//	struct { uint32_t ROL : 7; uint32_t RA : 7;		uint32_t ROH : 2; uint32_t reserved : 5;	uint32_t OP : 11; } LBTI;
+//	uint32_t Instruction;
+//};
 
 //#define QWORD_REVERSE_COPY 0
 //

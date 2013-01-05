@@ -14,11 +14,22 @@
 #include "elf_helper.h"
 
 
+using namespace std;
+
+const char* ELF_32_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\4\4\4\4\2\2\2\2\2\2";
+const char* ELF_32_traits_t::pheader_layout = "\4\4\4\4\4\4\4\4";
+const char* ELF_32_traits_t::sheader_layout = "\4\4\4\4\4\4\4\4\4\4";
+const char* ELF_32_traits_t::symbol_layout	= "\4\4\4\1\1\2";
+
+const char* ELF_64_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\x8\x8\x8\4\2\2\2\2\2\2";
+const char* ELF_64_traits_t::pheader_layout = "\4\4\x8\x8\x8\x8\x8\x8";
+const char* ELF_64_traits_t::sheader_layout = "\4\4\x8\x8\x8\x8\4\4\x8\x8";
+const char* ELF_64_traits_t::symbol_layout	= "\4\1\1\2\x8\x8";
 
 
 namespace elf
 {
-	struct _32_traits_t
+	/*struct ELF_32_traits_t
 	{
 		typedef Elf32_Ehdr header_type;
 		typedef Elf32_Phdr pheader_type;
@@ -31,12 +42,12 @@ namespace elf
 		static const char* symbol_layout;
 	};
 
-	const char* _32_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\4\4\4\4\2\2\2\2\2\2";
-	const char* _32_traits_t::pheader_layout = "\4\4\4\4\4\4\4\4";
-	const char* _32_traits_t::sheader_layout = "\4\4\4\4\4\4\4\4\4\4";
-	const char* _32_traits_t::symbol_layout	= "\4\4\4\1\1\2";
+	const char* ELF_32_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\4\4\4\4\2\2\2\2\2\2";
+	const char* ELF_32_traits_t::pheader_layout = "\4\4\4\4\4\4\4\4";
+	const char* ELF_32_traits_t::sheader_layout = "\4\4\4\4\4\4\4\4\4\4";
+	const char* ELF_32_traits_t::symbol_layout	= "\4\4\4\1\1\2";
 
-	struct _64_traits_t
+	struct ELF_64_traits_t
 	{
 		typedef Elf64_Ehdr header_type;
 		typedef Elf64_Phdr pheader_type;
@@ -49,10 +60,10 @@ namespace elf
 		static const char* symbol_layout;
 	};
 
-	const char* _64_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\x8\x8\x8\4\2\2\2\2\2\2";
-	const char* _64_traits_t::pheader_layout = "\4\4\x8\x8\x8\x8\x8\x8";
-	const char* _64_traits_t::sheader_layout = "\4\4\x8\x8\x8\x8\4\4\x8\x8";
-	const char* _64_traits_t::symbol_layout	= "\4\1\1\2\x8\x8";
+	const char* ELF_64_traits_t::header_layout	= "\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\1\2\2\4\x8\x8\x8\4\2\2\2\2\2\2";
+	const char* ELF_64_traits_t::pheader_layout = "\4\4\x8\x8\x8\x8\x8\x8";
+	const char* ELF_64_traits_t::sheader_layout = "\4\4\x8\x8\x8\x8\4\4\x8\x8";
+	const char* ELF_64_traits_t::symbol_layout	= "\4\1\1\2\x8\x8";*/
 
 	vector<size_t> EnumEmbeddedSPUOffsets( const vector<uint8_t>& Data )
 	{
@@ -105,20 +116,26 @@ namespace elf
 		pheader_type* ph_b = (pheader_type*)((const uint8_t*)ELF + h->e_phoff);
 		pheader_type* ph_e = ph_b + h->e_phnum;
 
-		std::for_each( ph_b, ph_e, ByteSwapHelper<pheader_type>(ELFTraits::pheader_layout) );
+		for_each( ph_b, ph_e, [](pheader_type& ph)
+		{
+			ReverseBytesInRange(&ph, ELFTraits::pheader_layout);
+		});
 
 		sheader_type* sh_b = (sheader_type*)((const uint8_t*)ELF + h->e_shoff);
 		sheader_type* sh_e = sh_b + h->e_shnum;
 
-		std::for_each( sh_b, sh_e, ByteSwapHelper<sheader_type>(ELFTraits::sheader_layout) );
+		for_each( sh_b, sh_e,  [](sheader_type& sh)
+		{
+			ReverseBytesInRange(&sh, ELFTraits::sheader_layout);
+		});
 	};
 
 	vector<uint32_t> PPUExecutables( void* ELF )
 	{
-		typedef _64_traits_t::header_type	header_type;
-		typedef _64_traits_t::pheader_type	pheader_type;
-		typedef _64_traits_t::sheader_type	sheader_type;
-		typedef _64_traits_t::symbol_type	symbol_type;
+		typedef ELF_64_traits_t::header_type	header_type;
+		typedef ELF_64_traits_t::pheader_type	pheader_type;
+		typedef ELF_64_traits_t::sheader_type	sheader_type;
+		typedef ELF_64_traits_t::symbol_type	symbol_type;
 
 		header_type* h = (header_type*)ELF;
 
@@ -154,11 +171,11 @@ namespace elf
 
 		if ( ELFCLASS32 == ((const uint8_t*)ELF)[EI_CLASS] )
 		{
-			HeaderByteswapperHelper<_32_traits_t>( ELF );
+			HeaderByteswapperHelper<ELF_32_traits_t>( ELF );
 		}
 		else if ( ELFCLASS64 == ((const uint8_t*)ELF)[EI_CLASS] )
 		{
-			HeaderByteswapperHelper<_64_traits_t>( ELF );
+			HeaderByteswapperHelper<ELF_64_traits_t>( ELF );
 		}
 	}
 
@@ -169,13 +186,13 @@ namespace elf
 
 		if ( ELFCLASS32 == ((char*)ELF)[EI_CLASS] )
 		{
-			_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;
+			ELF_32_traits_t::header_type* h = (ELF_32_traits_t::header_type*)ELF;
 
 			return h->e_entry;
 		}
 		else if ( ELFCLASS64 == ((char*)ELF)[EI_CLASS] )
 		{
-			_64_traits_t::header_type* h = (_64_traits_t::header_type*)ELF;
+			ELF_64_traits_t::header_type* h = (ELF_64_traits_t::header_type*)ELF;
 
 			return h->e_entry;
 		}
@@ -190,10 +207,10 @@ namespace elf
 
 		if ( ELFCLASS32 == ((char*)ELF)[EI_CLASS] )
 		{
-			_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;
+			ELF_32_traits_t::header_type* h = (ELF_32_traits_t::header_type*)ELF;
 
-			_32_traits_t::pheader_type* p = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
-			_32_traits_t::pheader_type* p_end = p + h->e_phnum;
+			ELF_32_traits_t::pheader_type* p = (ELF_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+			ELF_32_traits_t::pheader_type* p_end = p + h->e_phnum;
 
 			while ( p != p_end )
 			{
@@ -208,9 +225,9 @@ namespace elf
 		}
 		else if ( ELFCLASS64 == ((char*)ELF)[EI_CLASS] )
 		{
-			_64_traits_t::header_type* h = (_64_traits_t::header_type*)ELF;
+			ELF_64_traits_t::header_type* h = (ELF_64_traits_t::header_type*)ELF;
 
-			_64_traits_t::pheader_type* p = (_64_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+			ELF_64_traits_t::pheader_type* p = (ELF_64_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
 
 			return p->p_vaddr;
 		}
@@ -225,8 +242,8 @@ namespace elf
 
 	namespace spu
 	{
-		static const Elf64_Half MACHINE_PPU = 21;
-		static const Elf64_Half MACHINE_SPU = 23;
+		static const Elf64_Half MACHINE_PPU = 0x15;
+		static const Elf64_Half MACHINE_SPU = 0x17;
 
 		vector<uint32_t> LoadExecutable( const void* ELF )
 		{
@@ -235,9 +252,9 @@ namespace elf
 
 			if ( MACHINE_PPU == *(Elf64_Half*)((uint8_t*)ELF + 18) )
 			{
-				_64_traits_t::header_type* h = (_64_traits_t::header_type*)ELF;			
+				ELF_64_traits_t::header_type* h = (ELF_64_traits_t::header_type*)ELF;			
 
-				_64_traits_t::pheader_type* p = (_64_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+				ELF_64_traits_t::pheader_type* p = (ELF_64_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
 
 				assert( p->p_flags & PF_X );
 
@@ -247,13 +264,13 @@ namespace elf
 			}
 			else if ( MACHINE_SPU == *(Elf64_Half*)((uint8_t*)ELF + 18) )
 			{
-				_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;			
+				ELF_32_traits_t::header_type* h = (ELF_32_traits_t::header_type*)ELF;			
 
-				_32_traits_t::pheader_type* ph_b = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
-				_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
+				ELF_32_traits_t::pheader_type* ph_b = (ELF_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+				ELF_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
 				
-				_32_traits_t::sheader_type* sh_b = (_32_traits_t::sheader_type*)((const uint8_t*)ELF + h->e_shoff);
-				_32_traits_t::sheader_type* sh_e = sh_b + h->e_shnum;
+//				ELF_32_traits_t::sheader_type* sh_b = (ELF_32_traits_t::sheader_type*)((const uint8_t*)ELF + h->e_shoff);
+//				ELF_32_traits_t::sheader_type* sh_e = sh_b + h->e_shnum;
 
 				vector<uint32_t> Binary;
 
@@ -266,7 +283,7 @@ namespace elf
 // 					{
 // 						const size_t BaseAddr = sh_b->sh_addr;
 // 
-// 						std::for_each( sh_b, sh_e, [&](_32_traits_t::sheader_type SH)
+// 						std::for_each( sh_b, sh_e, [&](ELF_32_traits_t::sheader_type SH)
 // 						{
 // 							if ( (SH.sh_type & SHT_PROGBITS) && (SH.sh_size) && (SH.sh_flags & SHF_EXECINSTR) )
 // 							{
@@ -283,7 +300,7 @@ namespace elf
 // 				}
 // 				else
 				{
-					std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
+					std::for_each( ph_b, ph_e, [&](ELF_32_traits_t::pheader_type PH)
 					{
 						if ( (PH.p_type & PT_LOAD) && (PH.p_filesz) && (PH.p_flags & PF_X) )
 						{
@@ -311,12 +328,12 @@ namespace elf
 			assert( ELF );
 			assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
 
-			_32_traits_t::header_type* h = (_32_traits_t::header_type*)ELF;			
+			ELF_32_traits_t::header_type* h = (ELF_32_traits_t::header_type*)ELF;			
 
-			_32_traits_t::pheader_type* ph_b = (_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
-			_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
+			ELF_32_traits_t::pheader_type* ph_b = (ELF_32_traits_t::pheader_type*)((const uint8_t*)ELF + h->e_phoff);
+			ELF_32_traits_t::pheader_type* ph_e = ph_b + h->e_phnum;
 
-			std::for_each( ph_b, ph_e, [&](_32_traits_t::pheader_type PH)
+			std::for_each( ph_b, ph_e, [&](ELF_32_traits_t::pheader_type PH)
 			{
 				if ( PH.p_type & PT_LOAD )
 				{
@@ -327,9 +344,9 @@ namespace elf
 			return res;
 		}
 
-#define ELF32_HEADER	((_32_traits_t::header_type*)ELF)
-#define ELF32_PH_BEGIN	(_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff)
-#define ELF32_PH_END	((_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff) + ELF32_HEADER->e_phnum)
+#define ELF32_HEADER	((ELF_32_traits_t::header_type*)ELF)
+#define ELF32_PH_BEGIN	(ELF_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff)
+#define ELF32_PH_END	((ELF_32_traits_t::pheader_type*)((uint8_t*)ELF + ELF32_HEADER->e_phoff) + ELF32_HEADER->e_phnum)
 
 		void LoadImage( uint8_t* LS, const void* ELF )
 		{
@@ -337,9 +354,9 @@ namespace elf
 			assert( LS );
 			assert( *(uint32_t*)ELFMAG == *(uint32_t*)ELF );
 
-			//const _32_traits_t::header_type* h = (const _32_traits_t::header_type*)ELF;
+			//const ELF_32_traits_t::header_type* h = (const ELF_32_traits_t::header_type*)ELF;
 
-			for ( _32_traits_t::pheader_type* p = ELF32_PH_BEGIN; p != ELF32_PH_END; ++p )
+			for ( ELF_32_traits_t::pheader_type* p = ELF32_PH_BEGIN; p != ELF32_PH_END; ++p )
 			{
 				if ( p->p_type & PT_LOAD )
 				{

@@ -1,7 +1,13 @@
 #include <string>
 #include <sstream>
+#include <iostream>
+#include <iomanip>
+#include <vector>
+
 #include "spu_emu.h"
 #include "spu_idb.h"
+
+using namespace std;
 
 std::string reg2str( uint8_t r )
 {
@@ -19,9 +25,50 @@ std::string reg2str( uint8_t r )
 	};
 }
 
+
+
+
+void printBasicInsnInfo(uint32_t op, ostream& os)
+{
+	os << setw(8) << setfill('0') << hex << op;
+
+	string mnemonic = spu_decode_op_mnemonic(op);
+	mnemonic.resize(8, ' ');
+
+	os << ":\t" << mnemonic << "\t";
+}
+
+auto DefaultDisasm = [](uint32_t op, ostream& os)
+{
+	printBasicInsnInfo(op, os);
+
+	/*const SPU_OP_COMPONENTS OPComp = spu_decode_op_components(op);
+
+
+
+	switch ( spu_decode_op_type(op) )
+	{
+	case SPU_OP_TYPE_RRR:
+	os << " $" << reg2str(OPComp.RT) << ", $" << reg2str(OPComp.RA) 
+	<< ", $" << reg2str(OPComp.RB) << ", $" << reg2str(OPComp.RC) << endl;
+	break;
+	default:
+	os << "ERROR unknown instruction format:";
+	};*/
+};
+
+static bool initDone = false;
+static vector<decltype(DefaultDisasm)> op2strLTBL(0x800, DefaultDisasm);
+
+void InitLTBL()
+{
+
+}
+
 std::string spu_disassemble( uint32_t instr_raw )
 {
 	std::ostringstream rout;
+
 	SPU_INSTRUCTION instr;
 	instr.Instruction = instr_raw;
 
@@ -171,12 +218,12 @@ std::string spu_disassemble( uint32_t instr_raw )
 			if ( mnemonic == "lqa" || mnemonic == "lqr" || mnemonic == "stqa" || mnemonic == "stqr" )
 			{
 				rout << " $" << reg2str(instr.RI16.RT)
-					<< ", " << SignExtend( instr.RI16.I16 << 2, 18 ) ;
+					<< ", 0x" << std::hex << SignExtend( instr.RI16.I16 << 2, 18 ) ;
 				break;
 			}
 
 			rout << " $" << reg2str(instr.RI16.RT) 
-				<< ", " << SignExtend( instr.RI16.I16, 16 ) ;
+				<< ", 0x" << std::hex << SignExtend( instr.RI16.I16, 16 ) ;
 			break;
 		}
 	case SPU_OP_TYPE_RI18:

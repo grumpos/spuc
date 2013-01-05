@@ -180,7 +180,7 @@ uint32_t spu_assemble( const std::string& istr_text_raw )
 				result.LBTI.RA = args[A_S16];
 				result.LBTI.ROL = (args[A_S11I] & 0x7F);
 				result.LBTI.ROH = ((args[A_S11I] >> 7) & 3);
-				result.LBTI.unused = 0;
+				result.LBTI.reserved = 0;
 				break;
 			}
 		};	
