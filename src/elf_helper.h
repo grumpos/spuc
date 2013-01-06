@@ -67,7 +67,7 @@ public:
 	typedef typename ELFTraits::symbol_type		symbol_type;
 
 public:
-	shared_ptr<memmap_t>		raw_file_;
+	shared_ptr<memmap_t>		RawFile_;
 	uint8_t*					ELFBase_;
 
 	header_type					HeaderLE_;
@@ -84,9 +84,26 @@ public:
 	string GetSymbolName( size_t index ) const { return index < StringTBL_.size() ? StringTBL_[index] : ""; }
 
 	explicit ElfFile( const char* FilePath, size_t OffsetInFile = 0 )
-		: raw_file_(shared_ptr<memmap_t>(mmopen(FilePath), mmclose)), 
-		//: raw_file_(mmopen(FilePath)), 
-		ELFBase_((uint8_t*)mmbegin(raw_file_.get()) + OffsetInFile)
+		: RawFile_(shared_ptr<memmap_t>(mmopen(FilePath), mmclose)),
+		ELFBase_((uint8_t*)mmbegin(RawFile_.get()) + OffsetInFile)
+	{
+		_ParseELF();
+	}
+
+	// TODO: make it parse from an arbitrary pointer
+	//explicit ElfFile( const void* FileData )
+	//	: RawFile_(shared_ptr<memmap_t>(mmopen(FilePath.c_str()), mmclose)),
+	//	ELFBase_((uint8_t*)mmbegin(RawFile_.get()) + OffsetInFile)
+	//{
+	//	_ParseELF();
+	//}
+
+	~ElfFile()
+	{
+	}
+
+private:
+	void _ParseELF()
 	{
 		_ReadELFHeader();
 
@@ -100,12 +117,7 @@ public:
 		_ReadStringTable();
 		_ReadSymbolTable();
 	}
-	~ElfFile()
-	{
-		//mmclose(raw_file_);
-	}
 
-private:
 	void _ReadELFHeader()
 	{
 		HeaderLE_ = *(header_type*)ELFBase_;

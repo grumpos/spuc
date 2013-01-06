@@ -103,7 +103,6 @@ struct fn_sym
 
 struct spu_image_info
 {
-	uint32_t imgsize;
 	uint32_t txt_off;
 	uint32_t txt_len;
 	uint32_t data_off;
@@ -126,45 +125,89 @@ vector<uint32_t> LoadBootloaderBin()
 	return BootldrImg;
 }
 
-
+vector<uint8_t> LoadBinFile( string path )
+{
+	ifstream iff( path.c_str(), ios::in | ios::binary | ios::ate );
+	const size_t filesize = iff.tellg();
+	vector<uint8_t> FileData(filesize);
+	iff.seekg(0);
+	iff.read( (char*)FileData.data(), filesize );
+	return FileData;
+}
 
 
 int main( int /*argc*/, char** /*argv*/ )
 {
-	vector<uint8_t> ELFFile = LoadFileBin((OSFolder + "lv1ldr.elf").c_str());
-
-	//ElfFile<SPU_ELF> ELFFile2((OSFolder + "bootldr.elf").c_str(), 0x29480);
-	ElfFile<SPU_ELF> ELFFile2((OSFolder + "lv1ldr.elf").c_str(), 0);
-
 	//auto internalELF = elf::EnumEmbeddedSPUOffsets(ELFFile);
-
-
-	vector<uint32_t> SPUBinary;
-	vector<uint8_t> BootldrData;
-	BootldrData.resize(0x40000 - 0x22000 - 0x400);
 	
-//	size_t EntryIndex = 0;
-	size_t vbase = 0;
-	uint8_t* SPU0 = (uint8_t*)ELFFile.data();// + SPUELFOffsets[0];
+	vector<uint32_t> SPUTextSection;
+	vector<uint8_t> SPUDataSection;
+	vector<uint8_t> SPULSImage;
+	size_t VirtualBase = 0;
+	//{
+	//	// bootldr.elf
+	//	SPULSImage = LoadBinFile(OSFolder + "bootldr.elf");
+
+	//	const spu_image_info BoorldrDesc =
+	//	{
+	//		0x400, 0x22000,
+	//		0x22400, (0x40000 - 0x22400)
+	//	};
+
+	//	VirtualBase = 0x400;
+
+	//	SPUTextSection.resize(BoorldrDesc.txt_len);
+	//	memcpy(SPUTextSection.data(), 
+	//		SPULSImage.data() + BoorldrDesc.txt_off, 
+	//		BoorldrDesc.txt_len);
+
+	//	SPUDataSection.resize(BoorldrDesc.data_len);
+	//	copy(SPULSImage.begin() + BoorldrDesc.data_off, 
+	//		SPULSImage.begin() + BoorldrDesc.data_off + BoorldrDesc.data_len, 
+	//		SPUDataSection.begin());
+
+
+	//}
 	{
-		elf::HeadersToSystemEndian( SPU0 );
+		// lv1ldr.elf
+		ElfFile<SPU_ELF> ELFFile((OSFolder + "lv1ldr.elf").c_str(), 0);
 
-		//SPUBinary = elf::spu::LoadExecutable( SPU0 );
-		SPUBinary = LoadBootloaderBin();
-
-		memcpy(BootldrData.data(), (const uint8_t*)SPUBinary.data() + 0x22000, BootldrData.size());
-
-		for ( size_t i = 0; i != SPUBinary.size(); ++i )
+		SPULSImage.resize(0x40000);
+		for (size_t ii = 0; ii < ELFFile.ProgramHeaders_.size(); ++ii)
 		{
-			SPUBinary[i] = _byteswap_ulong(SPUBinary[i]);
+			auto& ph = ELFFile.ProgramHeaders_[ii];
+			if (ph.p_type & PT_LOAD)
+			{
+				memcpy( SPULSImage.data() + ph.p_vaddr, 
+					ELFFile.PData_[ii].begin(), 
+					ELFFile.PData_[ii].size() );
+			}
 		}
 
-//		EntryIndex = elf::EntryPointIndex( SPU0 );
+		VirtualBase = ELFFile.HeaderLE_.e_entry;
 
-		vbase = 0x400;
-		//vbase = elf::VirtualBaseAddr( SPU0 );
+		const spu_image_info ImageDesc =
+		{
+			VirtualBase, 0x190C0,
+			VirtualBase + 0x190C0, (0x40000 - (VirtualBase + 0x190C0))
+		};
+
+		SPUTextSection.resize(ImageDesc.txt_len);
+		memcpy(SPUTextSection.data(), 
+			SPULSImage.data() + ImageDesc.txt_off, 
+			ImageDesc.txt_len);
+
+		SPUDataSection.resize(ImageDesc.data_len);
+		copy(SPULSImage.begin() + ImageDesc.data_off, 
+			SPULSImage.begin() + ImageDesc.data_off + ImageDesc.data_len, 
+			SPUDataSection.begin());
 	}
 
+	for (auto& op : SPUTextSection)
+	{
+		op = _byteswap_ulong(op);
+	}
+	
 	/*string disasm;
 
 	for (auto op : SPUBinary)
@@ -178,13 +221,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	bootldrdis << disasm;
 	bootldrdis.close();*/
 
-
-
-	
-	
-	
-
-	SPUBinary.resize( 0x22000 / 4 ); // FIXME hardcoded for now bootldr
+	//SPUTextSection.resize( 0x22000 / 4 ); // FIXME hardcoded for now bootldr
 	//SPUBinary.resize( 0x190C0 / 4 ); // FIXME hardcoded for now lv1ldr
 	//SPUBinary.resize( 0x12ef0 / 4 ); // FIXME hardcoded for now lv2ldr
 
@@ -192,17 +229,17 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	vector<spu_insn> insninfo;
 	{
-		spu_insn_process_bin( SPUBinary, insninfo, vbase );
+		spu_insn_process_bin( SPUTextSection, insninfo, VirtualBase );
 	}
 
 	spu::op_distrib_t OPDistrib;
 	{
-		OPDistrib = spu::GatherOPDistribution( SPUBinary );
+		OPDistrib = spu::GatherOPDistribution( SPUTextSection );
 	}
 
 	//spuGatherLoads( SPUBinary, OPDistrib, vbase );
 
-	set<size_t> brsl_targets = spu_get_brsl_targets(OPDistrib, insninfo, vbase);
+	set<size_t> brsl_targets = spu_get_brsl_targets(OPDistrib, insninfo, VirtualBase);
 
 	vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
 		OPDistrib, insninfo );
