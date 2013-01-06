@@ -378,11 +378,10 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 
 		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
 			inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
-			[](bb*const& block) { return block->type == bbtype::sjumpf; });
-
-		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
-			[](bb*const& block) { return block->type == bbtype::sjumpb; });
+			[](bb*const& block) 
+		{ 
+			return block->type == bbtype::sjumpf || block->type == bbtype::sjumpb; 
+		});
 
 		for (auto block : fn_term_block_sjumpf)
 		{

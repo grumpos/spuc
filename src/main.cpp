@@ -192,7 +192,7 @@ int main( int /*argc*/, char** /*argv*/ )
 			VirtualBase + 0x190C0, (0x40000 - (VirtualBase + 0x190C0))
 		};
 
-		SPUTextSection.resize(ImageDesc.txt_len);
+		SPUTextSection.resize(ImageDesc.txt_len / 4);
 		memcpy(SPUTextSection.data(), 
 			SPULSImage.data() + ImageDesc.txt_off, 
 			ImageDesc.txt_len);
