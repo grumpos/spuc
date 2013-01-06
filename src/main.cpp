@@ -156,7 +156,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	//	VirtualBase = 0x400;
 
-	//	SPUTextSection.resize(BoorldrDesc.txt_len);
+	//	SPUTextSection.resize(BoorldrDesc.txt_len / 4);
 	//	memcpy(SPUTextSection.data(), 
 	//		SPULSImage.data() + BoorldrDesc.txt_off, 
 	//		BoorldrDesc.txt_len);
