@@ -18,8 +18,6 @@
 
 #define SPU_OP_INVALID_GPR			(0x80)
 
-
-
 const size_t SPU_MAX_INSTRUCTION_COUNT = 0x800;
 
 enum SPU_OP_TYPE
@@ -111,27 +109,35 @@ struct spu_insn
 	bb* parent;
 };
 
+struct jump_table
+{
+	const spu_insn* jump;
+	std::set<const spu_insn*> jump_targets;
+};
+
 spu_insn* vaddr2insn( size_t vaddr, const std::vector<spu_insn>& insns );
 
 void spu_insn_process_bin( const std::vector<uint32_t>& binary, 
 						  std::vector<spu_insn>& insninfo, 
 						  size_t vbase );
 
-void spu_insn_process_flags( std::vector<spu_insn>& insninfo,
-							std::map<std::string, std::vector<size_t>>& histogram );
+//void spu_insn_process_flags( std::vector<spu_insn>& insninfo,
+//							std::map<std::string, std::vector<size_t>>& histogram );
+
+std::vector<jump_table> enum_jump_tables(const std::vector<spu_insn>& insninfo);
 
 std::vector<size_t> spu_find_basicblock_leader_offsets(
-	std::map<std::string, std::vector<size_t>>& opdistrib,
-	const std::vector<spu_insn>& insninfo );
+	std::map<spu_op, std::vector<spu_insn*>>& opdistrib,
+	std::vector<spu_insn>& insninfo );
 
 std::set<size_t> spu_get_brsl_targets(
-	std::map<std::string, std::vector<size_t>>& histogram,
+	std::map<spu_op, std::vector<spu_insn*>>& histogram,
 	const std::vector<spu_insn>& insninfo,
 	size_t entry_vaddr );
 
-std::set<size_t> spu_get_br_targets(
-	std::map<std::string, std::vector<size_t>>& histogram,
-	const std::vector<spu_insn>& insninfo );
+//std::set<size_t> spu_get_br_targets(
+//	std::map<std::string, std::vector<size_t>>& histogram,
+//	const std::vector<spu_insn>& insninfo );
 
 std::set<size_t> spu_get_initial_fn_entries(
 	std::map<std::string, std::vector<size_t>>& histogram,

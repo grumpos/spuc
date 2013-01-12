@@ -292,99 +292,177 @@ spu_insn* vaddr2insn( uint32_t vaddr, vector<spu_insn>& insns )
 	return &insns[offset];
 }
 
-vector<size_t> spu_find_basicblock_leader_offsets(
-	map<string, vector<size_t>>& opdistrib,
-	const vector<spu_insn>& insninfo )
+vector<jump_table> enum_jump_tables(const vector<spu_insn>& insninfo)
 {
-	vector<size_t> bb_leads;
+	vector<jump_table> tables;
+
+	// find jump tables embedded in the text section
+	// bi, followed by nonzero stops
+	// each stop is an IP
+	// the highest IP must belong to the bi's function
+	// thus bbs starting with thost IPs can't be terminators except the last one
+	set<bb*> cond_blocks;
+
+	auto to_insn = [&insninfo](size_t vaddr) -> const spu_insn*
+	{
+		const size_t offset = (vaddr - insninfo[0].vaddr) / 4;
+		return &insninfo[offset];
+	};
+
+	for (auto& insn : insninfo)
+	{
+		const spu_insn* curr_insn = &insn;
+		const spu_insn* next_insn = curr_insn + 1;
+
+
+
+		if (curr_insn->op == spu_op::M_BI
+			&& next_insn->op == spu_op::M_STOP 
+			&& next_insn->raw >= 0x12c00)
+		{
+			// curr_insn == bi, the jump
+			// next_insn == first jump address
+			jump_table new_table;
+			new_table.jump = curr_insn;
+
+			bb* first_block = next_insn->parent;
+
+			const spu_insn* jumptbl_begin = next_insn;
+			const spu_insn* jumptbl_end = next_insn;
+
+			while (jumptbl_end->op == spu_op::M_STOP 
+				&& jumptbl_end->raw >= 0x12c00)
+			{
+				new_table.jump_targets.insert(to_insn(jumptbl_end->raw));
+				cond_blocks.insert(to_insn(jumptbl_end->raw)->parent);
+				++jumptbl_end;
+			}
+
+			tables.push_back(new_table);
+		}
+	}
+
+	return tables;
+}
+
+vector<size_t> spu_find_basicblock_leader_offsets(
+	map<spu_op, vector<spu_insn*>>& opdistrib,
+	vector<spu_insn>& insninfo )
+{
+	vector<spu_insn*> bb_leads;
 
 	// gather insns that change the control flow
-	auto append = [&](string mnem) { 
-		bb_leads.insert( 
-			bb_leads.end(), opdistrib[mnem].cbegin(), opdistrib[mnem].cend() );
+	auto append = [&](spu_op type) { 
+		for (auto insn : opdistrib[type])
+		{
+			bb_leads.push_back(++insn);
+		}
 	};
-	append( "br" );
-	append( "brsl" );
-	append( "brz" );
-	append( "brnz" );
-	append( "brhz" );
-	append( "brhnz" );
-	append( "bi" );
-	append( "iret" );
-	append( "bisl" );
-	append( "bisled" );
-	append( "biz" );
-	append( "binz" );
-	append( "bihz" );
-	append( "bihnz" );
+	append( spu_op::M_BR );
+	append( spu_op::M_BRSL );
+	append( spu_op::M_BRZ );
+	append( spu_op::M_BRNZ );
+	append( spu_op::M_BRHZ );
+	append( spu_op::M_BRHNZ );
+	append( spu_op::M_BI );
+	append( spu_op::M_IRET );
+	append( spu_op::M_BISL );
+	append( spu_op::M_BISLED );
+	append( spu_op::M_BIZ );
+	append( spu_op::M_BINZ );
+	append( spu_op::M_BIHZ );
+	append( spu_op::M_BIHNZ );
 
 	/* 
 	There is a paddig with (l)nops that throws off the basic block generation.
 	Functions must start on a modulo 8 address and extra lnops are used to achieve that.
 	However, due to how basic block generation algo works, this often gives us a false
-	block where the first insn is an lnop where in face that lnop shold be consdidered
-	a deac code. To work around this, I'll treat nop/lnop as a (br $IP+4) op. That way
+	block where the first insn is an lnop where in fact that lnop shold be consdidered
+	a dead code. To work around this, I'll treat nop/lnop as a (br $IP+4) op. That way
 	they get their own basic blocks and does not interfere with the rest of the 
 	processing, I hope. They will be treated as an unconditional jump to the next insn.
 	*/
-	append( "nop" );
-	append( "lnop" );		
+	append( spu_op::M_NOP );
+	append( spu_op::M_LNOP );
 
-	copy_if( opdistrib["stop"].cbegin(), opdistrib["stop"].cend(), back_inserter(bb_leads),
-		[&](size_t index)
+	for (auto insn : opdistrib[spu_op::M_STOP])
 	{
-		return 0 == insninfo[index].comps.IMM;
-	});
-
-	// next insn after cflow break will become a leader
-	for ( auto& index : bb_leads )
-	{
-		index += 1;
+		if (0 == insn->raw)
+		{
+			bb_leads.push_back(++insn);
+		}
 	}
 
 	// entry is a leader 
 	// FIXME: hardcoded for now
-	bb_leads.push_back( 0 );
-
+	bb_leads.push_back( &insninfo[0] );
 
 	// gather branch targets
-	auto append_targets = [&](string mnem) { 
-		transform( opdistrib[mnem].cbegin(), opdistrib[mnem].cend(), back_inserter(bb_leads),
-			[&](size_t index) { return (index + insninfo[index].comps.IMM) & 0xffff; } );
+	auto append_targets = [&](spu_op type) { 
+		for (auto insn : opdistrib[type])
+		{
+			bb_leads.push_back(insn + insn->comps.IMM);
+		}
+		//transform( opdistrib[type].cbegin(), opdistrib[type].cend(), 
+		//	back_inserter(bb_leads),
+		//	[&](size_t index) { return (index + insninfo[index].comps.IMM) & 0xffff; } );
 	};
-	append_targets( "br" );
-	append_targets( "brsl" );
-	append_targets( "brz" );
-	append_targets( "brnz" );
-	append_targets( "brhz" );
-	append_targets( "brhnz" );
+	append_targets( spu_op::M_BR );
+	append_targets( spu_op::M_BRSL );
+	append_targets( spu_op::M_BRZ );
+	append_targets( spu_op::M_BRNZ );
+	append_targets( spu_op::M_BRHZ );
+	append_targets( spu_op::M_BRHNZ );
+
+	auto jmptbl = enum_jump_tables(insninfo);
+
+	for (auto& tbl : jmptbl)
+	{
+		for (auto target : tbl.jump_targets)
+		{
+			// FIXME: remove the const cast
+			bb_leads.push_back(const_cast<spu_insn*>(target));
+		}
+	}
 
 	sort( bb_leads.begin(), bb_leads.end() );
 
 	bb_leads.erase( unique( bb_leads.begin(), bb_leads.end() ), bb_leads.end() );
 
-	return bb_leads;
+	vector<size_t> leads_offsets;
+
+	for (auto leader : bb_leads)
+	{
+		leads_offsets.push_back(leader - &insninfo[0]);
+	}
+
+	return leads_offsets;
 }
+
+
 
 static const size_t LSLR = 0x3ffff;
 static const size_t LSLR_INSN = LSLR >> 2;
 
+//map<spu_op, vector<spu_insn*>>
+//set<size_t> spu_get_brsl_targets(
+//	map<string, vector<size_t>>& histogram,
+//	const vector<spu_insn>& insninfo,
+//	size_t entry_vaddr )
 set<size_t> spu_get_brsl_targets(
-	map<string, vector<size_t>>& histogram,
+	map<spu_op, vector<spu_insn*>>& histogram,
 	const vector<spu_insn>& insninfo,
 	size_t entry_vaddr )
 {
-
 	set<size_t> vaddr_list;
 
 	vaddr_list.insert( entry_vaddr );
 
-	auto& brsl_offsets = histogram["brsl"];
-	for ( auto offset : brsl_offsets )
+	auto& brsl_ops = histogram[spu_op::M_BRSL];
+	for ( auto insn : brsl_ops )
 	{
-		const spu_insn* insn = &insninfo[offset];
-		const spu_insn* target = &insninfo[(offset + insn->comps.IMM) & 0xffff];
-		vaddr_list.insert( target->vaddr );
+		auto to_vaddr = (insn->vaddr + insn->comps.IMM * 4) & LSLR;
+		vaddr_list.insert( to_vaddr );
 	}
 
 	return vaddr_list;
@@ -406,15 +484,15 @@ set<size_t> spu_get_br_targets(
 	return vaddr_list;
 }
 
-set<size_t> spu_get_initial_fn_entries(
-	map<string, vector<size_t>>& histogram,
-	const vector<spu_insn>& insninfo,
-	size_t entry_vaddr )
-{
-	set<size_t> entries = 
-		spu_get_brsl_targets(histogram, insninfo, entry_vaddr);
-
-	entries.insert( insninfo[0].vaddr );
-
-	return entries;
-}
+//set<size_t> spu_get_initial_fn_entries(
+//	map<string, vector<size_t>>& histogram,
+//	const vector<spu_insn>& insninfo,
+//	size_t entry_vaddr )
+//{
+//	set<size_t> entries = 
+//		spu_get_brsl_targets(histogram, insninfo, entry_vaddr);
+//
+//	entries.insert( insninfo[0].vaddr );
+//
+//	return entries;
+//}

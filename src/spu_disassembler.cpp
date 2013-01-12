@@ -9,12 +9,12 @@
 
 using namespace std;
 
-std::string reg2str( uint8_t r )
+string reg2str( uint8_t r )
 {
 	switch (r)
 	{
-	case 0: return "LR";
-	case 1: return "SR";
+	case 0: return "lr";
+	case 1: return "sr";
 
 	default:
 		{
@@ -25,65 +25,39 @@ std::string reg2str( uint8_t r )
 	};
 }
 
-
-
-
-void printBasicInsnInfo(uint32_t op, ostream& os)
+inline uint32_t addr( int64_t val )
 {
-	os << setw(8) << setfill('0') << hex << op;
-
-	string mnemonic = spu_decode_op_mnemonic(op);
-	mnemonic.resize(8, ' ');
-
-	os << ":\t" << mnemonic << "\t";
+	return 0x3FFFF & (uint32_t)(uint64_t)val;
 }
 
-auto DefaultDisasm = [](uint32_t op, ostream& os)
-{
-	printBasicInsnInfo(op, os);
-
-	/*const SPU_OP_COMPONENTS OPComp = spu_decode_op_components(op);
-
-
-
-	switch ( spu_decode_op_type(op) )
-	{
-	case SPU_OP_TYPE_RRR:
-	os << " $" << reg2str(OPComp.RT) << ", $" << reg2str(OPComp.RA) 
-	<< ", $" << reg2str(OPComp.RB) << ", $" << reg2str(OPComp.RC) << endl;
-	break;
-	default:
-	os << "ERROR unknown instruction format:";
-	};*/
-};
-
 static bool initDone = false;
-static vector<decltype(DefaultDisasm)> op2strLTBL(0x800, DefaultDisasm);
 
 void InitLTBL()
 {
 
 }
 
-std::string spu_disassemble( uint32_t instr_raw )
+string spu_disassemble( const spu_insn* insn )
 {
-	std::ostringstream rout;
+	ostringstream oss;
 
-	SPU_INSTRUCTION instr;
-	instr.Instruction = instr_raw;
+	oss << setw(8) << hex << insn->vaddr << ":\t";
 
-	std::string mnemonic = spu_decode_op_mnemonic(instr_raw);
-	mnemonic.resize( 8, ' ' );
-	rout << mnemonic << "\t";
+	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[3]) << " ";
+	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[2]) << " ";
+	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[1]) << " ";
+	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[0]) << " ";
 
-	switch ( spu_decode_op_type(instr_raw) )
+	oss << spu_decode_op_mnemonic(insn->raw) << "\t";
+
+	switch ( spu_decode_op_type(insn->raw) )
 	{
 	case SPU_OP_TYPE_RRR:
 		{
-			rout << " $" << reg2str(instr.RRR.RT) 
-				<< ", $" << reg2str(instr.RRR.RA) 
-				<< ", $" << reg2str(instr.RRR.RB) 
-				<< ", $" << reg2str(instr.RRR.RC);
+			oss << " $" << reg2str(insn->comps.RT) 
+				<< ", $" << reg2str(insn->comps.RA) 
+				<< ", $" << reg2str(insn->comps.RB) 
+				<< ", $" << reg2str(insn->comps.RC);
 			break;
 		}
 
@@ -96,12 +70,12 @@ std::string spu_disassemble( uint32_t instr_raw )
 				"$SPU_WrEventAck",
 				"$SPU_RdSigNotify1",
 				"$SPU_RdSigNotify2",
-				"$6",
-				"$7",
+				"$ch6",
+				"$ch7",
 				"$SPU_WrDec",
 				"$SPU_RdDec",
 				"$MFC_WrMSSyncReq",
-				"$10",
+				"$ch10",
 				"$SPU_RdEventMask",
 				"$MFC_RdTagMask",
 				"$SPU_RdMachStat",
@@ -119,136 +93,155 @@ std::string spu_disassemble( uint32_t instr_raw )
 				"$MFC_RdListStallStat",
 				"$MFC_WrListStallAck",
 				"$MFC_RdAtomicStat", 
-				"$SPU_WrOutMbox", 
+				"$SPU_WossMbox", 
 				"$SPU_RdInMbox", 
-				"$SPU_WrOutIntrMbox"
+				"$SPU_WossIntrMbox"
 			};
 
-			if ( mnemonic == "rdch" || mnemonic == "rchcnt" )
+			if ( insn->op == spu_op::M_RDCH || insn->op == spu_op::M_RCHCNT )
 			{
-				rout << " $" << reg2str(instr.RR.RT); 
-				if ( instr.RR.RA < 31 )
+				oss << " $" << reg2str(insn->comps.RT); 
+				if ( insn->comps.RA < 31 )
 				{
-					rout << ", " << ch_ltb[instr.RR.RA];
+					oss << ", " << ch_ltb[insn->comps.RA];
 				}
 				else
 				{
-					rout << ", $" << reg2str(instr.RR.RA);
+					oss << ", $ch" << reg2str(insn->comps.RA);
 				}
 			}
-			else if (  mnemonic == "wrch" )
+			else if ( insn->op == spu_op::M_WRCH )
 			{				
-				if ( instr.RR.RA < 31 )
+				if ( insn->comps.RA < 31 )
 				{
-					rout << ch_ltb[instr.RR.RA];
+					oss << ch_ltb[insn->comps.RA];
 				}
 				else
 				{
-					rout << "$" << reg2str(instr.RR.RA);
+					oss << "$ch" << reg2str(insn->comps.RA);
 				}
-				rout << ", $" << reg2str(instr.RR.RT); 
+				oss << ", $" << reg2str(insn->comps.RT); 
 			}
-			else if ( mnemonic == "nop" ||
-				mnemonic == "lnop" ||
-				mnemonic == "sync" ||
-				mnemonic == "dsync" ||
-				mnemonic == "iret" )
+			else if ( insn->op == spu_op::M_NOP ||
+				insn->op == spu_op::M_LNOP ||
+				insn->op == spu_op::M_SYNC ||
+				insn->op == spu_op::M_DSYNC ||
+				insn->op == spu_op::M_IRET ||
+				insn->op == spu_op::M_STOP )
 			{
+				// do nothing
 			}
-			else if ( mnemonic == "bi" )
+			else if ( insn->op == spu_op::M_BI )
 			{
-				rout << " $" << reg2str(instr.RR.RA) << " ;----------]";
-			}
-			else if ( mnemonic == "stop" )
-			{
-				union stopi
-				{
-					struct 
-					{
-						uint32_t snstype : 14;
-						uint32_t pad : 7;
-						uint32_t OP : 11;						
-					} stop_fmt;
-					uint32_t raw;
-				};
-
-				stopi si = {instr_raw};
-
-				rout << std::hex << si.stop_fmt.snstype;
+				oss << " $" << reg2str(insn->comps.RA);
 			}
 			else
 			{
-				rout << " $" << reg2str(instr.RR.RT) 
-					<< ", $" << reg2str(instr.RR.RA) 
-					<< ", $" << reg2str(instr.RR.RB);
+				oss << " $" << reg2str(insn->comps.RT) 
+					<< ", $" << reg2str(insn->comps.RA) 
+					<< ", $" << reg2str(insn->comps.RB);
 			}
 			break;
 		}
 	case SPU_OP_TYPE_RI7:
 		{
-			rout << " $" << reg2str(instr.RI7.RT) 
-				<< ", $" << reg2str(instr.RI7.RA) 
-				<< ", " << SignExtend( instr.RI7.I7, 7 );
+			oss << " $" << reg2str(insn->comps.RT) 
+				<< ", $" << reg2str(insn->comps.RA) 
+				<< ", " << dec << insn->comps.IMM;
+			if (insn->comps.IMM) 
+				oss << "\t#" << hex << (uint32_t)insn->comps.IMM;
 			break;
 		}
 	case SPU_OP_TYPE_RI8:
 		{
-			rout << " $" << reg2str(instr.RI8.RT) 
-				<< ", $" << reg2str(instr.RI8.RA) 
-				<< ", " << SignExtend( instr.RI8.I8, 8 );
+			oss << " $" << reg2str(insn->comps.RT) 
+				<< ", $" << reg2str(insn->comps.RA) 
+				<< ", " << dec << insn->comps.IMM;
+			if (insn->comps.IMM) 
+				oss << "\t#" << hex << (uint32_t)insn->comps.IMM;
 			break;
 		}
 	case SPU_OP_TYPE_RI10:
 		{
-			if ( mnemonic == "lqd" ||  mnemonic == "stqd" )
+			if ( insn->op == spu_op::M_LQD 
+				||  insn->op == spu_op::M_STQD )
 			{
-				rout << " $" << reg2str(instr.RI10.RT) 
-					<< ", " << SignExtend( instr.RI10.I10 << 4, 14 ) 
-					<< "($" << reg2str(instr.RI10.RA) << ")";
+				oss << " $" << reg2str(insn->comps.RT) 
+					<< ", " << dec << insn->comps.IMM
+					<< "($" << reg2str(insn->comps.RA) << ")";
 				break;
 			}
 
-			rout << " $" << reg2str(instr.RI10.RT) 
-				<< ", $" << reg2str(instr.RI10.RA) 
-				<< ", " << SignExtend( instr.RI10.I10, 10 ) ;
+			oss << " $" << reg2str(insn->comps.RT) 
+				<< ", $" << reg2str(insn->comps.RA) 
+				<< ", " << dec << insn->comps.IMM;
+			if (insn->comps.IMM) 
+				oss << "\t#" << hex << (uint32_t)insn->comps.IMM;
 			break;
 		}
 	case SPU_OP_TYPE_RI16:
 		{
-			if ( mnemonic == "lqa" || mnemonic == "lqr" || mnemonic == "stqa" || mnemonic == "stqr" )
+			/*if ( insn->op == spu_op::M_LQA 
+			|| insn->op == spu_op::M_LQR 
+			|| insn->op == spu_op::M_STQA 
+			|| insn->op == spu_op::M_STQR )
 			{
-				rout << " $" << reg2str(instr.RI16.RT)
-					<< ", 0x" << std::hex << SignExtend( instr.RI16.I16 << 2, 18 ) ;
-				break;
-			}
+			oss << " $" << reg2str(insn->comps.RT)
+			<< ", " << dec << insn->comps.IMM;
+			if (insn->comps.IMM) 
+			oss << "\t#" << hex << (uint32_t)insn->comps.IMM;
+			break;
+			}*/
 
-			rout << " $" << reg2str(instr.RI16.RT) 
-				<< ", 0x" << std::hex << SignExtend( instr.RI16.I16, 16 ) ;
+			if ( insn->op == spu_op::M_BR )
+			{
+				oss << "0x" << hex << addr(insn->vaddr + insn->comps.IMM * 4);
+			}
+			else if ( insn->op == spu_op::M_BRZ
+				||  insn->op == spu_op::M_BRNZ
+				||  insn->op == spu_op::M_BRHZ
+				||  insn->op == spu_op::M_BRHNZ
+				||  insn->op == spu_op::M_BRSL)
+			{
+				oss << " $" << reg2str(insn->comps.RT) 
+					<< ", 0x" << hex << addr(insn->vaddr + insn->comps.IMM * 4);
+			}
+			else
+			{
+				oss << " $" << reg2str(insn->comps.RT) 
+					<< ", " << dec << insn->comps.IMM;
+				if (insn->comps.IMM) 
+					oss << "\t#" << hex << (uint32_t)insn->comps.IMM;				
+			}			
 			break;
 		}
 	case SPU_OP_TYPE_RI18:
 		{
-			rout << " $" << reg2str(instr.RI18.RT) 
-				<<  ", " << instr.RI18.I18; 
+			oss << " $" << reg2str(insn->comps.RT) 
+				<<  ", " << dec << addr(insn->comps.IMM);
+			if (insn->comps.IMM) 
+				oss << "\t#" << hex << addr(insn->comps.IMM);
 			break;
 		}
 	case SPU_OP_TYPE_LBT:
 		{
-			rout << " " << SignExtend( (((uint32_t)instr.LBT.ROH << 2) | (uint32_t)instr.LBT.ROL) << 2, 11 ) 
+			SPU_INSTRUCTION instr = {insn->raw};
+			oss << " " << SignExtend( (((uint32_t)instr.LBT.ROH << 2) | (uint32_t)instr.LBT.ROL) << 2, 11 ) 
 				<< ", " << SignExtend( instr.LBT.I16 << 2, 18 );
 			break;
 		}
 	case SPU_OP_TYPE_LBTI:
 		{
-			rout << " " << SignExtend( (((uint32_t)instr.LBTI.ROH << 2) | (uint32_t)instr.LBTI.ROL) << 2, 11 ) 
+			SPU_INSTRUCTION instr = {insn->raw};
+			oss << " " << SignExtend( (((uint32_t)instr.LBTI.ROH << 2) | (uint32_t)instr.LBTI.ROL) << 2, 11 ) 
 				<< ", $" << SignExtend( instr.LBTI.RA, 18 );
 			break;
 		}
 	default:
 		{
-			rout << "ERROR unknown instruction format:" << mnemonic;
+			oss << "ERROR unknown instruction format:" << hex << insn->raw;
 		}
 	};
 
-	return rout.str();
+	return oss.str();
 }

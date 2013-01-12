@@ -3,9 +3,7 @@
 #include "basicblock.h"
 #include "spu_idb.h"
 
-
 using namespace std;
-
 
 vector<bb> bb_genblocks( 
 	const vector<size_t>& block_leads,
@@ -25,7 +23,7 @@ vector<bb> bb_genblocks(
 
 	blocks.reserve(block_leads.size() - 1);
 
-	// pair-visit neighbors
+	// iterate by pairs
 	transform(bb_lead_insn.begin(), bb_lead_insn.end() - 1,
 		bb_lead_insn.begin() + 1,
 		back_inserter(blocks),
@@ -36,22 +34,7 @@ vector<bb> bb_genblocks(
 		return newblock;
 	});
 
-	//for ( size_t b = 0, e = 1; e < block_leads.size(); ++b, ++e )
-	//{
-	//	const size_t begin_insn_idx = block_leads[b];
-	//	const size_t end_insn_idx = block_leads[e];
-
-	//	bb newblock = { 			
-	//		insninfo.data() + begin_insn_idx, 
-	//		insninfo.data() + end_insn_idx - 1, 
-	//		insninfo.data() + end_insn_idx,
-	//		bbtype::code
-	//	};
-
-	//	blocks.push_back(newblock);
-	//}
-
-	// assign owner blocks to insns
+	// assign parent blocks to insns
 	for (auto& block : blocks)
 	{
 		for (auto* insn = block.ibegin; insn != block.iend; ++insn)
@@ -142,8 +125,8 @@ void bb_find_unconditional_blocks(
 
 			if ( block.type == bbtype::cjumpf )
 			{
-				bb_cond_first = &block;
-				bb_cond_last = target_block + 1;
+				bb_cond_first = &block + 1;
+				bb_cond_last = target_block;
 			}
 			else
 			{
@@ -192,6 +175,8 @@ void bb_find_unconditional_blocks(
 	//	}
 	//}
 }
+
+
 
 vector<fn> bb_genfn(vector<bb>& blocks,
 					const vector<spu_insn>& insninfo,
@@ -251,9 +236,67 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 	// Blocks that remain are guaranted to contain only control flow 
 	// breakers or reversers that will terminate a function.
 	// Returns in in() blocks are discarded.
+
 	set<bb*> blocks_uncond;
 
 	bb_find_unconditional_blocks( blocks, blocks_uncond );
+
+	{
+		// find jump tables embedded in the text section
+		// bi, followed by nonzero stops
+		// each stop is an IP
+		// the highest IP must belong to the bi's function
+		// thus bbs starting with thost IPs can't be terminators except the last one
+		set<bb*> cond_blocks;
+
+		auto to_insn = [&insninfo](size_t vaddr) -> const spu_insn*
+		{
+			const size_t offset = (vaddr - insninfo[0].vaddr) / 4;
+			return &insninfo[offset];
+		};
+
+		for (auto& insn : insninfo)
+		{
+			const spu_insn* curr_insn = &insn;
+			const spu_insn* next_insn = curr_insn + 1;
+
+			
+
+			if (curr_insn->op == spu_op::M_BI
+				&& next_insn->op == spu_op::M_STOP 
+				&& next_insn->raw >= 0x12c00)
+			{
+				// curr_insn == bi, the jump
+				// next_insn == first jump address
+
+				bb* first_block = next_insn->parent;
+
+				const spu_insn* jumptbl_begin = next_insn;
+				const spu_insn* jumptbl_end = next_insn;
+
+				while (jumptbl_end->op == spu_op::M_STOP 
+					&& jumptbl_end->raw >= 0x12c00)
+				{
+					cond_blocks.insert(to_insn(jumptbl_end->raw)->parent);
+					++jumptbl_end;
+				}
+
+				bb* last_block = *--cond_blocks.end();
+
+				cond_blocks.erase(--cond_blocks.end());
+
+				while (first_block != last_block)
+				{
+					blocks_uncond.erase(first_block++);
+				}
+			}
+		}
+
+		for (auto block : cond_blocks)
+		{
+			blocks_uncond.erase(block);
+		}
+	}
 
 	set<bb*> known_fn_entries;
 	set<bb*> known_fn_exits;
@@ -371,19 +414,55 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 			|| exit_count != known_fn_exits.size());
 	};
 
+	auto can_be_fn_lead = [&](bb* block)
+	{
+		const bool is_uncond_bb = 
+			blocks_uncond.end() != find(blocks_uncond.begin(), blocks_uncond.end(), block);
+
+		if (is_uncond_bb)
+			return true;
+
+		// block is conditional, but it can still be a fn entry if it's the first
+		// in a series of conditional blocks
+		const bool is_uncond_prev_bb = 
+			blocks_uncond.end() != find(blocks_uncond.begin(), blocks_uncond.end(), block - 1);
+
+		return is_uncond_prev_bb;
+	};
+
 	recalc_boundaries();
 
 	{
-		set<bb*> fn_term_block_sjumpf;
+		set<bb*> sjumps;
 
 		copy_if( blocks_uncond.begin(), blocks_uncond.end(), 
-			inserter(fn_term_block_sjumpf, fn_term_block_sjumpf.end()),
+			inserter(sjumps, sjumps.end()),
 			[](bb*const& block) 
 		{ 
 			return block->type == bbtype::sjumpf || block->type == bbtype::sjumpb; 
 		});
 
-		for (auto block : fn_term_block_sjumpf)
+		/*set<bb*> spills;
+
+		for ( auto jump : sjumps )
+		{
+			auto to = (jump->branch + jump->branch->comps.IMM)->parent;
+			if (to->ibegin->vaddr  % 8 != 0)
+				continue;
+			auto lb = lower_bound(known_fn_entries.begin(), known_fn_entries.end(), jump);
+			auto ub = lb;
+			while (*lb > jump)
+				--lb;
+			const bool spills_before = to < *lb;
+			const bool spills_after = to >= *ub;
+
+			if (spills_before || spills_after)
+				known_fn_entries.insert(to);
+		}
+
+		recalc_boundaries();*/
+
+		for (auto block : sjumps)
 		{
 			bb* target_block = (block->branch + block->branch->comps.IMM)->parent;
 
@@ -396,7 +475,14 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 				const size_t exit_old_size = known_fn_exits.size();
 
 				known_fn_exits.insert(block);
-				known_fn_entries.insert(target_block);
+				if (can_be_fn_lead(target_block))
+				{
+					known_fn_entries.insert(target_block);
+				}
+				else
+				{
+					int z = 3;
+				}
 
 				if (entry_old_size != known_fn_entries.size()
 					|| exit_old_size != known_fn_exits.size())

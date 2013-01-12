@@ -9,6 +9,8 @@
 #include <map>
 #include <cassert>
 #include <memory>
+#include <iomanip>
+#include <valarray>
 #include "spu_idb.h"
 #include "elf.h"
 #include "elf_helper.h"
@@ -18,6 +20,15 @@
 #include "fn.h"
 
 using namespace std;
+
+template<class T>
+set<T> operator-(const set<T>& lhs, const set<T>& rhs)
+{
+	set<T> result;
+	set_difference(lhs.begin(), lhs.end(),
+		rhs.begin(), rhs.end(), inserter(result, result.end()));
+	return result;
+}
 
 struct cfgnode
 {
@@ -30,69 +41,54 @@ struct cfgnode
 	bb* block;
 };
 
-void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
-					size_t VirtBase )
-{	
-	auto GatherAbsAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
-	{
-		const auto& AbsMemOPs = OPDistrib[mnem];
+//void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
+//					size_t VirtBase )
+//{	
+//	auto GatherAbsAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
+//	{
+//		const auto& AbsMemOPs = OPDistrib[mnem];
+//
+//		std::transform( 
+//			AbsMemOPs.begin(), AbsMemOPs.end(), 
+//			std::inserter(Addresses, Addresses.end()), 
+//			[&]( size_t Offset )->uint32_t
+//		{
+//			const uint32_t LSLR = 0x3ffff & -16;
+//
+//			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
+//
+//			return ((uint32_t)OPComponents.IMM << 2) & LSLR;
+//		});
+//	};
+//
+//	auto GatherRelAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
+//	{
+//		const auto& RelMemOPs = OPDistrib[mnem];
+//
+//		std::transform( RelMemOPs.begin(), RelMemOPs.end(), 
+//			std::inserter(Addresses, Addresses.end()), 
+//			[&]( size_t Offset )->uint32_t
+//		{
+//			const uint32_t LSLR = 0x3ffff & -16;
+//
+//			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
+//
+//			return (VirtBase + (Offset*4) + ((int32_t)OPComponents.IMM << 2)) & LSLR;
+//		});
+//	};
+//
+//	std::set<uint32_t> AbsLoadTargets;
+//	std::set<uint32_t> RelLoadTargets;
+//	std::set<uint32_t> AbsStoreTargets;
+//	std::set<uint32_t> RelStoreTargets;
+//
+//	GatherAbsAddresses( "lqa", AbsLoadTargets );
+//	GatherRelAddresses( "lqr", RelLoadTargets );
+//	GatherAbsAddresses( "stqa", AbsStoreTargets );
+//	GatherRelAddresses( "stqr", RelStoreTargets );
+//}
 
-		std::transform( 
-			AbsMemOPs.begin(), AbsMemOPs.end(), 
-			std::inserter(Addresses, Addresses.end()), 
-			[&]( size_t Offset )->uint32_t
-		{
-			const uint32_t LSLR = 0x3ffff & -16;
-
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
-
-			return ((uint32_t)OPComponents.IMM << 2) & LSLR;
-		});
-	};
-
-	auto GatherRelAddresses = [&]( const string& mnem, std::set<uint32_t>& Addresses )
-	{
-		const auto& RelMemOPs = OPDistrib[mnem];
-
-		std::transform( RelMemOPs.begin(), RelMemOPs.end(), 
-			std::inserter(Addresses, Addresses.end()), 
-			[&]( size_t Offset )->uint32_t
-		{
-			const uint32_t LSLR = 0x3ffff & -16;
-
-			const SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[Offset]);
-
-			return (VirtBase + (Offset*4) + ((int32_t)OPComponents.IMM << 2)) & LSLR;
-		});
-	};
-
-	std::set<uint32_t> AbsLoadTargets;
-	std::set<uint32_t> RelLoadTargets;
-	std::set<uint32_t> AbsStoreTargets;
-	std::set<uint32_t> RelStoreTargets;
-
-	GatherAbsAddresses( "lqa", AbsLoadTargets );
-	GatherRelAddresses( "lqr", RelLoadTargets );
-	GatherAbsAddresses( "stqa", AbsStoreTargets );
-	GatherRelAddresses( "stqr", RelStoreTargets );
-}
-
-
-string print_bb( const bb& block )
-{
-	ostringstream oss;
-	oss << "\"";
-
-	for ( auto iter = block.ibegin; iter != block.iend; ++iter )
-	{
-		oss << spu_decode_op_mnemonic(iter->raw) << "\\n";
-	}
-
-	oss << "\"";
-	return oss.str();
-}
-
-vector<uint8_t> LoadFileBin( string path );
+//vector<uint8_t> LoadFileBin( string path );
 
 struct fn_sym
 {
@@ -110,20 +106,6 @@ struct spu_image_info
 };
 
 const string OSFolder = "F:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\";
-
-
-vector<uint32_t> LoadBootloaderBin()
-{
-	ifstream iff( (OSFolder + "bootldr.elf").c_str(), 
-		ios::in | ios::binary );
-	const size_t filesize = iff.tellg();
-	vector<uint32_t> BootldrImg;
-	BootldrImg.resize( (0x40000  - 0x400) / sizeof(uint32_t) );
-	iff.seekg( 0x400 );
-	iff.read( (char*)BootldrImg.data(), 0x40000 - 0x400 );
-	iff.close();
-	return BootldrImg;
-}
 
 vector<uint8_t> LoadBinFile( string path )
 {
@@ -143,31 +125,32 @@ int main( int /*argc*/, char** /*argv*/ )
 	vector<uint32_t> SPUTextSection;
 	vector<uint8_t> SPUDataSection;
 	vector<uint8_t> SPULSImage;
-	size_t VirtualBase = 0;
-	//{
-	//	// bootldr.elf
-	//	SPULSImage = LoadBinFile(OSFolder + "bootldr.elf");
+	uint32_t VirtualBase = 0;
 
-	//	const spu_image_info BoorldrDesc =
-	//	{
-	//		0x400, 0x22000,
-	//		0x22400, (0x40000 - 0x22400)
-	//	};
+#if 0
+	{
+		// bootldr.elf
+		SPULSImage = LoadBinFile(OSFolder + "bootldr.elf");
 
-	//	VirtualBase = 0x400;
+		const spu_image_info BoorldrDesc =
+		{
+			0x400, 0x22000,
+			0x22400, (0x40000 - 0x22400)
+		};
 
-	//	SPUTextSection.resize(BoorldrDesc.txt_len / 4);
-	//	memcpy(SPUTextSection.data(), 
-	//		SPULSImage.data() + BoorldrDesc.txt_off, 
-	//		BoorldrDesc.txt_len);
+		VirtualBase = 0x400;
 
-	//	SPUDataSection.resize(BoorldrDesc.data_len);
-	//	copy(SPULSImage.begin() + BoorldrDesc.data_off, 
-	//		SPULSImage.begin() + BoorldrDesc.data_off + BoorldrDesc.data_len, 
-	//		SPUDataSection.begin());
+		SPUTextSection.resize(BoorldrDesc.txt_len / 4);
+		memcpy(SPUTextSection.data(), 
+			SPULSImage.data() + BoorldrDesc.txt_off, 
+			BoorldrDesc.txt_len);
 
-
-	//}
+		SPUDataSection.resize(BoorldrDesc.data_len);
+		copy(SPULSImage.begin() + BoorldrDesc.data_off, 
+			SPULSImage.begin() + BoorldrDesc.data_off + BoorldrDesc.data_len, 
+			SPUDataSection.begin());
+	}
+#else
 	{
 		// lv1ldr.elf
 		ElfFile<SPU_ELF> ELFFile((OSFolder + "lv1ldr.elf").c_str(), 0);
@@ -202,47 +185,57 @@ int main( int /*argc*/, char** /*argv*/ )
 			SPULSImage.begin() + ImageDesc.data_off + ImageDesc.data_len, 
 			SPUDataSection.begin());
 	}
+#endif
 
 	for (auto& op : SPUTextSection)
 	{
 		op = _byteswap_ulong(op);
 	}
-	
-	/*string disasm;
-
-	for (auto op : SPUBinary)
-	{
-		std::string spu_disassemble( uint32_t instr_raw );
-
-		disasm += spu_disassemble(op) += "\n";
-	}
-
-	ofstream bootldrdis("F:\\boot.dis");
-	bootldrdis << disasm;
-	bootldrdis.close();*/
 
 	//SPUTextSection.resize( 0x22000 / 4 ); // FIXME hardcoded for now bootldr
 	//SPUBinary.resize( 0x190C0 / 4 ); // FIXME hardcoded for now lv1ldr
 	//SPUBinary.resize( 0x12ef0 / 4 ); // FIXME hardcoded for now lv2ldr
-
-	
 
 	vector<spu_insn> insninfo;
 	{
 		spu_insn_process_bin( SPUTextSection, insninfo, VirtualBase );
 	}
 
-	spu::op_distrib_t OPDistrib;
+	// try to remove lnop/nop
+	valarray<ptrdiff_t> adjustments(insninfo.size());
+
+	for (size_t ii = 0, shift = 0; (ii + shift) != insninfo.size(); ++ii)
 	{
-		OPDistrib = spu::GatherOPDistribution( SPUTextSection );
+		if (insninfo[ii].op == spu_op::M_LNOP
+			|| insninfo[ii].op == spu_op::M_NOP)
+		{
+			++shift;
+			
+		}
+		insninfo[ii] = insninfo[ii + shift];
 	}
 
-	//spuGatherLoads( SPUBinary, OPDistrib, vbase );
+	map<spu_op, vector<spu_insn*>> Distrib_new;
+	{
+		for (auto& insn : insninfo)
+		{
+			Distrib_new[insn.op].push_back(&insn); 
+		}
+	}	
 
-	set<size_t> brsl_targets = spu_get_brsl_targets(OPDistrib, insninfo, VirtualBase);
+
+
+	//spu::op_distrib_t OPDistrib;
+	//{
+	//	OPDistrib = spu::GatherOPDistribution( SPUTextSection );
+	//}
+
+	//spuGatherLoads( SPUTextSection, OPDistrib, VirtualBase );
+
+	set<size_t> brsl_targets = spu_get_brsl_targets(Distrib_new, insninfo, VirtualBase);
 
 	vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
-		OPDistrib, insninfo );
+		Distrib_new, insninfo );
 
 	vector<bb> blocks = bb_genblocks( bb_leads, insninfo );
 
@@ -258,41 +251,77 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	vector<fn> functions = bb_genfn(blocks, insninfo, brsl_targets);
 
-	// scan function insns for register usage
-	// registers 3-74 are used for argument passing
-	// any register that is used as source operand before it was
-	// used as destination operand must be a function argument
+	// try a validation pass maybe?
+	// branches should jump inside the function only. except the TCO exits jumps
+
+	auto is_jump = [](spu_insn* insn)
+	{
+		return insn->op == spu_op::M_BR
+			|| insn->op == spu_op::M_BRHNZ
+			|| insn->op == spu_op::M_BRHZ
+			|| insn->op == spu_op::M_BRZ
+			|| insn->op == spu_op::M_BRHZ;			
+	};
+
+	auto jump_target = [](spu_insn* insn)
+	{
+		return insn + insn->comps.IMM;
+	};
+
+	ostringstream oss;
+
+	string spu_disassemble( const spu_insn* insn );
+
 	for (auto& fun : functions)
 	{
-		// unused operands have index SPU_OP_INVALID_GPR
-		// allocating enough space for this index removes lots of ifs
-		uint8_t Registers[SPU_OP_INVALID_GPR + 1] = {0};
-		uint8_t ArgCount = 0;
+		oss << "function " << "sub" 
+			<< setw(8) << setfill('0') << hex << fun.entry->ibegin->vaddr 
+			<< endl;
 
-		auto check_gpr = [&Registers, &ArgCount](uint8_t gpr)
+		for (auto block = fun.entry; block <= fun.exit; ++block)
 		{
-			const bool is_arg_reg = gpr > 2 && gpr < 75;
-			
-			if (is_arg_reg && !Registers[gpr])
+			oss << "\t" << "loc" 
+				<< setw(8) << setfill('0') << hex << block->ibegin->vaddr 
+				<< ":" << endl;
+			for (auto insn = block->ibegin; insn != block->iend; ++insn)
 			{
-				ArgCount = max<uint8_t>( gpr - 2, ArgCount );
+				oss << "\t" 
+					<< spu_disassemble(insn)
+					<< endl;
 			}
-		};
-
-		for (spu_insn* insn = fun.entry->ibegin; insn != fun.exit->iend; ++insn)
-		{
-			SPU_OP_COMPONENTS& OPComp = insn->comps;
-
-			check_gpr(OPComp.RA);
-			check_gpr(OPComp.RB);
-			check_gpr(OPComp.RC);
-
-			// flag register as written
-			Registers[OPComp.RT] = 1;
 		}
-
-		fun.argcnt = ArgCount;
 	}
+
+	ofstream off("F:\\dump.dis");
+	off << oss.str();
+	off.close();
+
+	for (auto& fun : functions)
+	{
+		auto fn_begin = fun.entry->ibegin;
+		auto fn_end = fun.exit->iend;
+
+		for (auto block = fun.entry; block != fun.exit; ++block)
+		{
+			for (auto insn = block->ibegin; insn != block->iend; ++insn)
+			{
+				if (is_jump(insn))
+				{
+					auto to = jump_target(insn);
+
+					if (to < fn_begin 
+						|| to >= fn_end)
+						cout << hex << insn->vaddr << "->" << hex << to->vaddr << endl;
+				}
+			}
+		}
+	}
+	
+	
+	
+	fn_calc_argcount(functions);
+
+	
 
 	//auto old_entries = known_fn_entries;
 
@@ -328,10 +357,9 @@ int main( int /*argc*/, char** /*argv*/ )
 	});
 		
 
-/*	decltype(known_fn_entries) dff;
-	set_difference(known_fn_entries.begin(), known_fn_entries.end(),
-		old_entries.begin(), old_entries.end(),
-		inserter(dff, dff.end()));*/
+
+
+
 
 	auto cfg_connect = [](cfgnode& a, cfgnode& b)
 	{
@@ -376,7 +404,11 @@ int main( int /*argc*/, char** /*argv*/ )
 		bb* block = nodelist[ii].block;
 		switch (block->type)
 		{
+		case bbtype::scall:
+		case bbtype::dcall:
+		case bbtype::cdjump:
 		case bbtype::code:
+		case bbtype::stopsignal:
 			{
 				cfg_connect(nodelist[ii], nodelist[ii + 1]);
 				break;
@@ -398,51 +430,49 @@ int main( int /*argc*/, char** /*argv*/ )
 				cfg_connect(nodelist[ii], nodelist[ii + 1]);
 				break;
 			}
-		case bbtype::scall:
-		case bbtype::dcall:
-			{
-				cfg_connect(nodelist[ii], nodelist[ii + 1]);
-				break;
-			}
 		default:
 			break;
 		}
 	}
 
-	vector<spu_insn*> uncalled;
+	set<spu_insn*> uncalled;
+	set<spu_insn*> from_brsl;
+	set<spu_insn*> fn_starters;
+	set<spu_insn*> fn_hidden;
+	for (size_t vaddr : brsl_targets)
+	{
+		from_brsl.insert(&insninfo[(vaddr - 0x12c00) / 4]);
+	}
+	for (auto& fun : functions)
+	{
+		fn_starters.insert(fun.entry->ibegin);
+	}
+	fn_hidden = fn_starters - from_brsl;
 	for (auto& node : nodelist)
 	{
-		if (node.pred.empty() && node.block->ibegin->op != spu_op::M_LNOP)
+		if (node.pred.empty() 
+			&& node.block->ibegin->op != spu_op::M_STOP)
 		{
-			uncalled.push_back(node.block->ibegin);
+			if (node.block->ibegin->op == spu_op::M_LNOP
+				&& node.block->ibegin->vaddr % 8 != 0)
+			{
+				uncalled.insert((node.block + 1)->ibegin);
+			}
+			else
+			{
+				uncalled.insert(node.block->ibegin);
+			}
 		}
 	}
 
+	set<spu_insn*> foo;
+	set<spu_insn*> foo2;
+	foo = uncalled - from_brsl;
+	foo2 = foo - fn_hidden;
 	
 
 /*	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 	*/
 	return 0;
-}
-
-vector<uint8_t> LoadFileBin( string path )
-{
-	vector<uint8_t> ELFFile;
-	{
-		ifstream iff( path.c_str(), ios::in | ios::ate | ios::binary );
-		const size_t filesize = iff.tellg();
-		ELFFile.resize( filesize );
-		iff.seekg( 0 );
-		iff.read( (char*)ELFFile.data(), filesize );
-		iff.close();
-	}
-	{
-		if ( ELFFile.empty() )
-		{
-			cout << "Input file not found" << endl;
-		}
-	}
-
-	return ELFFile;
 }

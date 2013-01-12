@@ -1,11 +1,11 @@
 
-#include <fstream>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
-#include <string>
-#include <cassert>
-#include <iostream>
+//#include <fstream>
+//#include <vector>
+//#include <algorithm>
+//#include <cstdint>
+//#include <string>
+//#include <cassert>
+//#include <iostream>
 
 #include "tools.h"
 #include "spu_idb.h"
@@ -16,59 +16,18 @@
 
 namespace spu
 {
-	using namespace std;
-	
+	using namespace std;	
 
 	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
 	{
-		// TODO: make op_distrib_t use 11 bit integer indexing and a fixed array
-		
-		/*uint32_t entry = 0;
-		uint32_t lbound = entry;
-		uint32_t hbound = 1;
-
-		for (size_t ii = 0; ii < hbound && ii < Binary.size(); ++ii)
-		{
-			const string mnem = spu_decode_op_mnemonic(Binary[ii]);
-
-			const string static_jumps[7] =
-			{
-				"br", "brsl", "brz", "brhz", "brnz", "brhnz", "brasl"
-			};
-
-			const bool is_static_jump =
-				(static_jumps + 7) != find(static_jumps, static_jumps + 7, mnem);
-
-			if (is_static_jump)
-			{
-				SPU_OP_COMPONENTS OPComponents = spu_decode_op_components(Binary[ii]);
-				const size_t jumpt_target = ii + OPComponents.IMM;
-
-				if (OPComponents.IMM > 0 && jumpt_target > hbound)
-					hbound = jumpt_target;
-				else if (OPComponents.IMM < 0 && jumpt_target < lbound)
-					lbound = jumpt_target;
-				else
-				{
-					++hbound;
-				}
-			}
-			else
-			{
-				++hbound;
-			}
-		}
-*/
-
 		op_distrib_t Distrib;
 		{
 			size_t index = 0;
 
-			for_each( Binary.cbegin(), Binary.cend(),
-				[&Distrib, &index](uint32_t Instr)
+			for( auto insn : Binary )
 			{
-				Distrib[spu_decode_op_mnemonic(Instr)].push_back(index++);
-			});
+				Distrib[spu_decode_op_mnemonic(insn)].push_back(index++);
+			}
 		}	
 
 		return Distrib;
