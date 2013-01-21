@@ -23,12 +23,12 @@ static string MakeFnName( size_t BaseAddr, size_t EntryOffset )
 // 	return string("void") + MakeFnName(BaseAddr, EntryOffset) + string("()");
 // }
 
-static string MakeLabel( size_t BaseAddr, size_t EntryOffset )
-{
-	ostringstream oss;
-	oss << "loc_" << hex << (BaseAddr + EntryOffset) << ":";
-	return oss.str();
-}
+//static string MakeLabel( size_t BaseAddr, size_t EntryOffset )
+//{
+//	ostringstream oss;
+//	oss << "loc_" << hex << (BaseAddr + EntryOffset) << ":";
+//	return oss.str();
+//}
 
 namespace spu
 {
@@ -60,9 +60,9 @@ namespace spu
 		{
 			NewIPList.reserve( NewIPList.size() + r.second - r.first );
 
-			for ( uint32_t i = r.first; i != r.second; ++i )
+			for ( size_t i = r.first; i != r.second; ++i )
 			{
-				NewIPList.push_back(i);
+				NewIPList.push_back(static_cast<uint32_t>(i));
 			}
 		});
 
@@ -175,7 +175,7 @@ namespace spu
 
 			for ( size_t k = 0; k != (*BytecodeIter).size(); ++k )
 			{
-				const size_t IP = VirtualBase + ((*IPIter)[k] * 4);
+//				const size_t IP = VirtualBase + ((*IPIter)[k] * 4);
 
 				/*if ( OPFlags[(*IPIter)[k]] & SPU_IS_BRANCH_TARGET )
 				{

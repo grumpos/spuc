@@ -7,9 +7,10 @@
 
 using namespace std;
 
-static vector<SPU_OP_TYPE>			db_op_type( SPU_MAX_INSTRUCTION_COUNT, SPU_OP_TYPE(-1) );
+static vector<SPU_OP_TYPE>		db_op_type( SPU_MAX_INSTRUCTION_COUNT, SPU_OP_TYPE(-1) );
 static vector<string>			db_op_mnemonic( SPU_MAX_INSTRUCTION_COUNT );
-vector<vector<SPU_ARGLIST>>	db_op_arglist( SPU_MAX_INSTRUCTION_COUNT );
+vector<vector<SPU_ARGLIST>>		db_op_arglist( SPU_MAX_INSTRUCTION_COUNT );
+
 
 void spu_build_op_db()
 {
@@ -35,23 +36,11 @@ void spu_build_op_db()
 	
 }
 
-//enum class spu_op : uint16_t
-//{
-//#define APUOP(TAG,		FORMAT,	OPCODE,	MNEMONIC,	ASM_FORMAT,	DEPENDENCY,	PIPE) \
-//	TAG = OPCODE,
-//
-//#include "spu-insns.h"
-//
-//#undef APUOP
-//};
-
 #undef _A0
 #undef _A1
 #undef _A2
 #undef _A3
 #undef _A4
-
-void link_mnem_to_solver();
 
 size_t spu_decode_op_opcode( uint32_t op )
 {
@@ -60,7 +49,6 @@ size_t spu_decode_op_opcode( uint32_t op )
 	if ( !opcodes_parsed )
 	{
 		spu_build_op_db();
-		//link_mnem_to_solver();
 		opcodes_parsed = true;
 	}
 
@@ -91,7 +79,7 @@ SPU_OP_TYPE spu_decode_op_type( uint32_t op )
 
 string spu_decode_op_mnemonic( uint32_t op )
 {
-	return db_op_mnemonic[spu_decode_op_opcode( op )].c_str();
+	return db_op_mnemonic[spu_decode_op_opcode( op )];
 }
 
 ptrdiff_t spu_op_decode_branch_offset( uint32_t op )
@@ -166,10 +154,10 @@ SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr )
 }
 
 void spu_insn_process_bin( const vector<uint32_t>& binary, 
-						  vector<spu_insn>& insninfo, 
+						  vector<spu_insn>& ilist, 
 						  size_t vbase )
 {
-	insninfo.reserve( binary.size() );
+	ilist.reserve( binary.size() );
 
 	uint32_t vaddr = (uint32_t)vbase;
 
@@ -183,11 +171,11 @@ void spu_insn_process_bin( const vector<uint32_t>& binary,
 //		insn_info.type = spu_decode_op_type( insn );
 		insn_info.comps = spu_decode_op_components( insn );
 		//insn_info.flags = 0;
-		insninfo.push_back( insn_info );
+		ilist.push_back( insn_info );
 	}
 }
 //
-//void spu_insn_process_flags( vector<spu_insn>& insninfo,
+//void spu_insn_process_flags( vector<spu_insn>& ilist,
 //							map<string, vector<size_t>>& histogram )
 //{
 //	auto flag_by_op = [&]( string mnem, uint32_t flag )
@@ -195,7 +183,7 @@ void spu_insn_process_bin( const vector<uint32_t>& binary,
 //		auto& filter = histogram[mnem];
 //		for ( size_t index : filter )
 //		{
-//			insninfo[index].flags |= flag;
+//			ilist[index].flags |= flag;
 //		}
 //	};
 //
@@ -234,8 +222,8 @@ void spu_insn_process_bin( const vector<uint32_t>& binary,
 //		auto& filter = histogram[mnem];
 //		for ( size_t index : filter )
 //		{
-//			const ptrdiff_t offset = insninfo[index].comps.IMM;
-//			insninfo[index + offset].flags |= SPU_IS_BRANCH_TARGET;
+//			const ptrdiff_t offset = ilist[index].comps.IMM;
+//			ilist[index + offset].flags |= SPU_IS_BRANCH_TARGET;
 //		}
 //	};
 //
@@ -250,8 +238,8 @@ void spu_insn_process_bin( const vector<uint32_t>& binary,
 //		auto& filter = histogram[mnem];
 //		for ( size_t index : filter )
 //		{			
-//			if ( IMM == insninfo[index].comps.IMM )
-//				insninfo[index].flags |= SPU_IS_ASSIGNMENT;
+//			if ( IMM == ilist[index].comps.IMM )
+//				ilist[index].flags |= SPU_IS_ASSIGNMENT;
 //		}
 //	};
 //
@@ -292,7 +280,7 @@ spu_insn* vaddr2insn( uint32_t vaddr, vector<spu_insn>& insns )
 	return &insns[offset];
 }
 
-vector<jump_table> enum_jump_tables(const vector<spu_insn>& insninfo)
+vector<jump_table> enum_jump_tables(const vector<spu_insn>& ilist)
 {
 	vector<jump_table> tables;
 
@@ -303,13 +291,13 @@ vector<jump_table> enum_jump_tables(const vector<spu_insn>& insninfo)
 	// thus bbs starting with thost IPs can't be terminators except the last one
 	set<bb*> cond_blocks;
 
-	auto to_insn = [&insninfo](size_t vaddr) -> const spu_insn*
+	auto to_insn = [&ilist](size_t vaddr) -> const spu_insn*
 	{
-		const size_t offset = (vaddr - insninfo[0].vaddr) / 4;
-		return &insninfo[offset];
+		const size_t offset = (vaddr - ilist[0].vaddr) / 4;
+		return &ilist[offset];
 	};
 
-	for (auto& insn : insninfo)
+	for (auto& insn : ilist)
 	{
 		const spu_insn* curr_insn = &insn;
 		const spu_insn* next_insn = curr_insn + 1;
@@ -325,9 +313,9 @@ vector<jump_table> enum_jump_tables(const vector<spu_insn>& insninfo)
 			jump_table new_table;
 			new_table.jump = curr_insn;
 
-			bb* first_block = next_insn->parent;
+//			bb* first_block = next_insn->parent;
 
-			const spu_insn* jumptbl_begin = next_insn;
+//			const spu_insn* jumptbl_begin = next_insn;
 			const spu_insn* jumptbl_end = next_insn;
 
 			while (jumptbl_end->op == spu_op::M_STOP 
@@ -347,7 +335,7 @@ vector<jump_table> enum_jump_tables(const vector<spu_insn>& insninfo)
 
 vector<size_t> spu_find_basicblock_leader_offsets(
 	map<spu_op, vector<spu_insn*>>& opdistrib,
-	vector<spu_insn>& insninfo )
+	vector<spu_insn>& ilist )
 {
 	vector<spu_insn*> bb_leads;
 
@@ -395,17 +383,18 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 
 	// entry is a leader 
 	// FIXME: hardcoded for now
-	bb_leads.push_back( &insninfo[0] );
+	bb_leads.push_back( &ilist[0] );
 
 	// gather branch targets
 	auto append_targets = [&](spu_op type) { 
 		for (auto insn : opdistrib[type])
 		{
-			bb_leads.push_back(insn + insn->comps.IMM);
+			auto to_vaddr = 0x3ffff & (insn->vaddr + insn->comps.IMM * 4);
+			bb_leads.push_back(to_insn(ilist, to_vaddr));
 		}
 		//transform( opdistrib[type].cbegin(), opdistrib[type].cend(), 
 		//	back_inserter(bb_leads),
-		//	[&](size_t index) { return (index + insninfo[index].comps.IMM) & 0xffff; } );
+		//	[&](size_t index) { return (index + ilist[index].comps.IMM) & 0xffff; } );
 	};
 	append_targets( spu_op::M_BR );
 	append_targets( spu_op::M_BRSL );
@@ -414,7 +403,7 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 	append_targets( spu_op::M_BRHZ );
 	append_targets( spu_op::M_BRHNZ );
 
-	auto jmptbl = enum_jump_tables(insninfo);
+	auto jmptbl = enum_jump_tables(ilist);
 
 	for (auto& tbl : jmptbl)
 	{
@@ -433,7 +422,7 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 
 	for (auto leader : bb_leads)
 	{
-		leads_offsets.push_back(leader - &insninfo[0]);
+		leads_offsets.push_back(leader - &ilist[0]);
 	}
 
 	return leads_offsets;
@@ -444,22 +433,18 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 static const size_t LSLR = 0x3ffff;
 static const size_t LSLR_INSN = LSLR >> 2;
 
-//map<spu_op, vector<spu_insn*>>
-//set<size_t> spu_get_brsl_targets(
-//	map<string, vector<size_t>>& histogram,
-//	const vector<spu_insn>& insninfo,
-//	size_t entry_vaddr )
+
+
 set<size_t> spu_get_brsl_targets(
 	map<spu_op, vector<spu_insn*>>& histogram,
-	const vector<spu_insn>& insninfo,
+	const vector<spu_insn>&,
 	size_t entry_vaddr )
 {
 	set<size_t> vaddr_list;
 
 	vaddr_list.insert( entry_vaddr );
 
-	auto& brsl_ops = histogram[spu_op::M_BRSL];
-	for ( auto insn : brsl_ops )
+	for ( auto insn : histogram[spu_op::M_BRSL] )
 	{
 		auto to_vaddr = (insn->vaddr + insn->comps.IMM * 4) & LSLR;
 		vaddr_list.insert( to_vaddr );
@@ -468,31 +453,31 @@ set<size_t> spu_get_brsl_targets(
 	return vaddr_list;
 }
 
-set<size_t> spu_get_br_targets(
-	map<string, vector<size_t>>& histogram,
-	const vector<spu_insn>& insninfo )
-{
-	set<size_t> vaddr_list;
-
-	auto& jmp_op_offsets = histogram["br"];
-	for ( auto& offset : jmp_op_offsets )
-	{
-		const spu_insn* insn = &insninfo[offset];
-		vaddr_list.insert( (insn + insn->comps.IMM)->vaddr );
-	}
-
-	return vaddr_list;
-}
+//set<size_t> spu_get_br_targets(
+//	map<string, vector<size_t>>& histogram,
+//	const vector<spu_insn>& ilist )
+//{
+//	set<size_t> vaddr_list;
+//
+//	auto& jmp_op_offsets = histogram["br"];
+//	for ( auto& offset : jmp_op_offsets )
+//	{
+//		const spu_insn* insn = &ilist[offset];
+//		vaddr_list.insert( (insn + insn->comps.IMM)->vaddr );
+//	}
+//
+//	return vaddr_list;
+//}
 
 //set<size_t> spu_get_initial_fn_entries(
 //	map<string, vector<size_t>>& histogram,
-//	const vector<spu_insn>& insninfo,
+//	const vector<spu_insn>& ilist,
 //	size_t entry_vaddr )
 //{
 //	set<size_t> entries = 
-//		spu_get_brsl_targets(histogram, insninfo, entry_vaddr);
+//		spu_get_brsl_targets(histogram, ilist, entry_vaddr);
 //
-//	entries.insert( insninfo[0].vaddr );
+//	entries.insert( ilist[0].vaddr );
 //
 //	return entries;
 //}

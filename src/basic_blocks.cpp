@@ -18,7 +18,7 @@ namespace spu
 {
 	using namespace std;	
 
-	op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
+	/*op_distrib_t GatherOPDistribution( const vector<uint32_t>& Binary )
 	{
 		op_distrib_t Distrib;
 		{
@@ -31,7 +31,7 @@ namespace spu
 		}	
 
 		return Distrib;
-	}
+	}*/
 }
 
 

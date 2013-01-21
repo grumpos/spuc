@@ -1,6 +1,8 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <algorithm>
+#include "spu_idb.h"
 
 using namespace std;
 
@@ -85,4 +87,75 @@ void PossibleStrings(const void* data, size_t len)
 		if (str == (const char*)data + len)
 			break;
 	}
+}
+
+vector<spu_insn> remove_nops(vector<spu_insn>& ilist)
+{
+	// Remove all NOP/LNOP
+
+	// Store how many NOP/LNOP will be removed before each insn
+	vector<uint32_t> Offsets(ilist.size());
+
+	uint32_t NOPCount = 0;
+
+	for (size_t ii = 0; ii < ilist.size(); ++ii)
+	{
+		Offsets[ii] = NOPCount; 
+
+		if (spu_op::M_NOP == ilist[ii].op
+			|| spu_op::M_LNOP == ilist[ii].op)
+		{
+			++NOPCount;
+		}
+	}
+
+	for (size_t ii = 0; ii < ilist.size(); ++ii)
+	{
+		spu_insn* Last = ilist.data() + ilist.size();
+		spu_insn* Current = &ilist[ii];
+		const size_t TargetOffset = 0xffff & ((int64_t)ii + ilist[ii].comps.IMM);
+		spu_insn* Target = ilist.data() + TargetOffset;
+
+		if (spu_op::M_LQR == ilist[ii].op
+			|| spu_op::M_BR == ilist[ii].op
+			|| spu_op::M_BRSL == ilist[ii].op
+			|| spu_op::M_BRZ == ilist[ii].op
+			|| spu_op::M_BRNZ == ilist[ii].op
+			|| spu_op::M_BRHZ == ilist[ii].op
+			|| spu_op::M_BRHNZ == ilist[ii].op
+			|| spu_op::M_STQR == ilist[ii].op)
+		{
+			if (Target < Current)
+			{
+				ilist[ii].comps.IMM -= Offsets[ii];
+
+				if (&ilist[ii] <= Target && Target < Last)
+				{
+					ilist[ii].comps.IMM += (Offsets[ii] - Offsets[TargetOffset]);
+				}
+			}
+			else if (Target > Current)
+			{
+				ilist[ii].comps.IMM += Offsets[ii];
+
+				if (&ilist[ii] <= Target && Target < Last)
+				{
+					ilist[ii].comps.IMM -= (Offsets[TargetOffset] - Offsets[ii]);
+				}
+			}			
+		}
+	}
+
+	vector<spu_insn> ilist_nopless(ilist.size() - NOPCount);
+
+	// Compact it, skipping NOP/LNOP
+	//vector<spu_insn> ilist_nopless;
+	copy_if(ilist.begin(), ilist.end(), ilist_nopless.begin(), 
+		[](const spu_insn& insn)
+	{
+		return !(spu_op::M_NOP == insn.op
+			|| spu_op::M_LNOP == insn.op);
+	});
+
+	return ilist_nopless;
 }

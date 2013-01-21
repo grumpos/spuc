@@ -101,7 +101,7 @@ static_assert(sizeof(SPU_INSTRUCTION) == 4, "");
 #define MFC_TagID 0x14*/
 
 
-typedef __m128 GPR_t;
+
 
 //struct SPU_t
 //{

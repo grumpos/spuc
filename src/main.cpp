@@ -10,7 +10,6 @@
 #include <cassert>
 #include <memory>
 #include <iomanip>
-#include <valarray>
 #include "spu_idb.h"
 #include "elf.h"
 #include "elf_helper.h"
@@ -20,6 +19,8 @@
 #include "fn.h"
 
 using namespace std;
+
+string spu_disassemble( const spu_insn* insn );
 
 template<class T>
 set<T> operator-(const set<T>& lhs, const set<T>& rhs)
@@ -117,6 +118,34 @@ vector<uint8_t> LoadBinFile( string path )
 	return FileData;
 }
 
+//class SPUImage
+//{
+//public:
+//	vector<uint32_t> SPUTextSection;
+//	vector<uint8_t> SPUDataSection;
+//	vector<uint8_t> SPULSImage;
+//
+//public:
+//	SPUImage(vector<uint8_t>&& SPUBinary)
+//		: SPULSImage(SPUBinary)
+//	{
+//		 ReverseLSQWords();
+//	}
+//private:
+//	void ReverseLSQWords()
+//	{
+//		uint64_t* LSDataBegin = (uint64_t*)SPULSImage.data();
+//		uint64_t* LSDataEnd = (uint64_t*)SPULSImage.data();
+//
+//		while (LSDataBegin != LSDataEnd)
+//		{
+//			const uint64_t Temp = _byteswap_uint64(*LSDataBegin);
+//			*LSDataBegin = _byteswap_uint64(*++LSDataBegin);
+//			*LSDataBegin++ = Temp;
+//		}
+//	}
+//};
+
 
 int main( int /*argc*/, char** /*argv*/ )
 {
@@ -127,7 +156,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	vector<uint8_t> SPULSImage;
 	uint32_t VirtualBase = 0;
 
-#if 0
+#if 1
 	{
 		// bootldr.elf
 		SPULSImage = LoadBinFile(OSFolder + "bootldr.elf");
@@ -184,8 +213,22 @@ int main( int /*argc*/, char** /*argv*/ )
 		copy(SPULSImage.begin() + ImageDesc.data_off, 
 			SPULSImage.begin() + ImageDesc.data_off + ImageDesc.data_len, 
 			SPUDataSection.begin());
+
+		ofstream bindump("F:\\lv1ldr.bin", ios::out | ios::binary);
+		bindump.write((const char*)SPULSImage.data(), 0x40000 );
 	}
 #endif
+
+	uint64_t* LSDataBegin = (uint64_t*)SPULSImage.data();
+	uint64_t* LSDataEnd = (uint64_t*)SPULSImage.data() + SPULSImage.size() / sizeof(uint64_t);
+
+	while (LSDataBegin != LSDataEnd)
+	{
+		const uint64_t Temp = _byteswap_uint64(LSDataBegin[0]);
+		LSDataBegin[0] = _byteswap_uint64(LSDataBegin[1]);
+		LSDataBegin[1] = Temp;
+		LSDataBegin += 2;
+	}
 
 	for (auto& op : SPUTextSection)
 	{
@@ -196,34 +239,36 @@ int main( int /*argc*/, char** /*argv*/ )
 	//SPUBinary.resize( 0x190C0 / 4 ); // FIXME hardcoded for now lv1ldr
 	//SPUBinary.resize( 0x12ef0 / 4 ); // FIXME hardcoded for now lv2ldr
 
-	vector<spu_insn> insninfo;
+	vector<spu_insn> ilist;
 	{
-		spu_insn_process_bin( SPUTextSection, insninfo, VirtualBase );
+		spu_insn_process_bin( SPUTextSection, ilist, VirtualBase );
 	}
 
-	// try to remove lnop/nop
-	valarray<ptrdiff_t> adjustments(insninfo.size());
+	
+	
 
-	for (size_t ii = 0, shift = 0; (ii + shift) != insninfo.size(); ++ii)
+	spu_vm spuVM;
+	spuVM.next = &ilist[0];
+	spuVM.LS = SPULSImage.data();
+	spuVM.vbase = VirtualBase;
+	memset(spuVM.GPR, 0, 128 * 16);
+
+	while (spuVM.next)
 	{
-		if (insninfo[ii].op == spu_op::M_LNOP
-			|| insninfo[ii].op == spu_op::M_NOP)
-		{
-			++shift;
-			
-		}
-		insninfo[ii] = insninfo[ii + shift];
+		void spu_vm_dostep(spu_vm* vm);
+		spu_vm_dostep(&spuVM);
 	}
+
 
 	map<spu_op, vector<spu_insn*>> Distrib_new;
 	{
-		for (auto& insn : insninfo)
+		for (auto& insn : ilist)
 		{
 			Distrib_new[insn.op].push_back(&insn); 
 		}
 	}	
 
-
+	
 
 	//spu::op_distrib_t OPDistrib;
 	//{
@@ -232,24 +277,16 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	//spuGatherLoads( SPUTextSection, OPDistrib, VirtualBase );
 
-	set<size_t> brsl_targets = spu_get_brsl_targets(Distrib_new, insninfo, VirtualBase);
+	set<size_t> brsl_targets = spu_get_brsl_targets(Distrib_new, ilist, VirtualBase);
 
 	vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
-		Distrib_new, insninfo );
+		Distrib_new, ilist );
 
-	vector<bb> blocks = bb_genblocks( bb_leads, insninfo );
+	vector<bb> blocks = bb_genblocks( bb_leads, ilist );
 
 	bb_calctypes( blocks );
 
-	//ifstream disasm_file("F:\\Dropbox\\lv1ldr.dis");
-	//assert(disasm_file.is_open());
-	//string line;
-	//do { getline(disasm_file, line); } while (line.find("12c00:") == string::npos);
-	//vector<string> bin_disasm;
-	//bin_disasm.push_back(line);
-	//while (getline(disasm_file, line)) { bin_disasm.push_back(line); }
-
-	vector<fn> functions = bb_genfn(blocks, insninfo, brsl_targets);
+	vector<fn> functions = bb_genfn(blocks, ilist, brsl_targets);
 
 	// try a validation pass maybe?
 	// branches should jump inside the function only. except the TCO exits jumps
@@ -270,7 +307,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	ostringstream oss;
 
-	string spu_disassemble( const spu_insn* insn );
+	
 
 	for (auto& fun : functions)
 	{
@@ -292,7 +329,7 @@ int main( int /*argc*/, char** /*argv*/ )
 		}
 	}
 
-	ofstream off("F:\\dump.dis");
+	ofstream off("F:\\bootldr.dis");
 	off << oss.str();
 	off.close();
 
@@ -320,25 +357,6 @@ int main( int /*argc*/, char** /*argv*/ )
 	
 	
 	fn_calc_argcount(functions);
-
-	
-
-	//auto old_entries = known_fn_entries;
-
-	//for (auto function : functions)
-	//{
-	//	if (function.exit->type == bbtype::sjumpb || function.exit->type == bbtype::sjumpf)
-	//	{
-	//		const spu_insn* target_insn = 
-	//			function.exit->branch + function.exit->branch->comps.IMM;
-	//		if (target_insn->vaddr < function.entry->ibegin->vaddr
-	//			|| target_insn->vaddr >= function.exit->iend->vaddr)
-	//		{
-	//			//fn_entry_after_term.insert(target_insn->vaddr);
-	//			known_fn_entries.insert(insn2block[target_insn]);
-	//		}
-	//	}
-	//}
 		
 	set<const spu_insn*> unused_insn;
 	set<bool> dumper;
@@ -361,7 +379,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
 
 
-	auto cfg_connect = [](cfgnode& a, cfgnode& b)
+	/*auto cfg_connect = [](cfgnode& a, cfgnode& b)
 	{
 		a.succ.push_back(&b);
 		b.pred.push_back(&a);
@@ -441,7 +459,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	set<spu_insn*> fn_hidden;
 	for (size_t vaddr : brsl_targets)
 	{
-		from_brsl.insert(&insninfo[(vaddr - 0x12c00) / 4]);
+		from_brsl.insert(&ilist[(vaddr - 0x12c00) / 4]);
 	}
 	for (auto& fun : functions)
 	{
@@ -468,7 +486,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	set<spu_insn*> foo;
 	set<spu_insn*> foo2;
 	foo = uncalled - from_brsl;
-	foo2 = foo - fn_hidden;
+	foo2 = foo - fn_hidden;*/
 	
 
 /*	spu::MakeSPUSrcFile( SPUBinary, FnRanges, 0, 

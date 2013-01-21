@@ -94,7 +94,7 @@ std::string		spu_decode_op_mnemonic( uint32_t op );
 size_t			spu_decode_op_opcode( uint32_t op );
 SPU_INSTR_PTR	spu_decode_op_solver( uint32_t op );
 SPU_OP_COMPONENTS spu_decode_op_components( uint32_t raw_instr );
-ptrdiff_t		spu_op_decode_branch_offset( uint32_t Instr );
+//ptrdiff_t		spu_op_decode_branch_offset( uint32_t Instr );
 
 struct bb;
 
@@ -109,40 +109,68 @@ struct spu_insn
 	bb* parent;
 };
 
+inline spu_insn* to_insn(std::vector<spu_insn>& ilist, size_t vaddr)
+{
+	const size_t offset = (vaddr - ilist[0].vaddr) / 4;
+	return &ilist[offset];
+}
+
+
+
+spu_insn* vaddr2insn( size_t vaddr, const std::vector<spu_insn>& insns );
+
+void spu_insn_process_bin( const std::vector<uint32_t>& binary, 
+						  std::vector<spu_insn>& ilist, 
+						  size_t vbase );
+
+//void spu_insn_process_flags( std::vector<spu_insn>& ilist,
+//							std::map<std::string, std::vector<size_t>>& histogram );
+
+
+
+std::vector<size_t> spu_find_basicblock_leader_offsets(
+	std::map<spu_op, std::vector<spu_insn*>>& opdistrib,
+	std::vector<spu_insn>& ilist );
+
+std::set<size_t> spu_get_brsl_targets(
+	std::map<spu_op, std::vector<spu_insn*>>& histogram,
+	const std::vector<spu_insn>& ilist,
+	size_t entry_vaddr );
+
+//std::set<size_t> spu_get_br_targets(
+//	std::map<std::string, std::vector<size_t>>& histogram,
+//	const std::vector<spu_insn>& ilist );
+
+std::set<size_t> spu_get_initial_fn_entries(
+	std::map<std::string, std::vector<size_t>>& histogram,
+	const std::vector<spu_insn>& ilist,
+	size_t entry_vaddr );
+
+/* 
+ * Jump tables
+ */
+
 struct jump_table
 {
 	const spu_insn* jump;
 	std::set<const spu_insn*> jump_targets;
 };
 
-spu_insn* vaddr2insn( size_t vaddr, const std::vector<spu_insn>& insns );
+std::vector<jump_table> enum_jump_tables(const std::vector<spu_insn>& ilist);
 
-void spu_insn_process_bin( const std::vector<uint32_t>& binary, 
-						  std::vector<spu_insn>& insninfo, 
-						  size_t vbase );
+/* 
+ * An SPU VM
+ */
 
-//void spu_insn_process_flags( std::vector<spu_insn>& insninfo,
-//							std::map<std::string, std::vector<size_t>>& histogram );
+typedef __m128 spu_gpr;
 
-std::vector<jump_table> enum_jump_tables(const std::vector<spu_insn>& insninfo);
-
-std::vector<size_t> spu_find_basicblock_leader_offsets(
-	std::map<spu_op, std::vector<spu_insn*>>& opdistrib,
-	std::vector<spu_insn>& insninfo );
-
-std::set<size_t> spu_get_brsl_targets(
-	std::map<spu_op, std::vector<spu_insn*>>& histogram,
-	const std::vector<spu_insn>& insninfo,
-	size_t entry_vaddr );
-
-//std::set<size_t> spu_get_br_targets(
-//	std::map<std::string, std::vector<size_t>>& histogram,
-//	const std::vector<spu_insn>& insninfo );
-
-std::set<size_t> spu_get_initial_fn_entries(
-	std::map<std::string, std::vector<size_t>>& histogram,
-	const std::vector<spu_insn>& insninfo,
-	size_t entry_vaddr );
-
+struct spu_vm
+{
+	spu_insn* next;
+	spu_insn* LR;
+	uint8_t* LS;
+	spu_gpr GPR[129];
+	uint32_t vbase;
+};
 
 #endif

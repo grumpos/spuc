@@ -23,7 +23,7 @@ struct Streamer
 			GetFileSizeEx( FileHandle, &FileSize );
 			Data.resize( FileSize.QuadPart );
 			ZeroMemory( &AsyncInfo, sizeof(OVERLAPPED) );
-			BOOL res = ReadFileEx( FileHandle, &Data[0], Data.size(), &AsyncInfo, 0 );
+			BOOL res = ReadFileEx( FileHandle, &Data[0], static_cast<DWORD>(Data.size()), &AsyncInfo, 0 );
 			DWORD err = GetLastError();
 			//FormatMessageA()
 			//while ( !Done());

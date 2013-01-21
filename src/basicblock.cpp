@@ -7,7 +7,7 @@ using namespace std;
 
 vector<bb> bb_genblocks( 
 	const vector<size_t>& block_leads,
-	vector<spu_insn>& insninfo )
+	vector<spu_insn>& ilist )
 {
 	vector<bb> blocks;
 	vector<spu_insn*> bb_lead_insn;
@@ -16,9 +16,9 @@ vector<bb> bb_genblocks(
 
 	transform(block_leads.begin(), block_leads.end(),
 		back_inserter(bb_lead_insn),
-		[&insninfo](size_t off) -> spu_insn*
+		[&ilist](size_t off) -> spu_insn*
 	{
-		return insninfo.data() + off;
+		return ilist.data() + off;
 	});
 
 	blocks.reserve(block_leads.size() - 1);
@@ -179,7 +179,7 @@ void bb_find_unconditional_blocks(
 
 
 vector<fn> bb_genfn(vector<bb>& blocks,
-					const vector<spu_insn>& insninfo,
+					const vector<spu_insn>& ilist,
 					const set<size_t>& brsl_targets)
 {
 	/*** Finding function boundaries using basic blocks
@@ -249,13 +249,13 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 		// thus bbs starting with thost IPs can't be terminators except the last one
 		set<bb*> cond_blocks;
 
-		auto to_insn = [&insninfo](size_t vaddr) -> const spu_insn*
+		auto to_insn = [&ilist](size_t vaddr) -> const spu_insn*
 		{
-			const size_t offset = (vaddr - insninfo[0].vaddr) / 4;
-			return &insninfo[offset];
+			const size_t offset = (vaddr - ilist[0].vaddr) / 4;
+			return &ilist[offset];
 		};
 
-		for (auto& insn : insninfo)
+		for (auto& insn : ilist)
 		{
 			const spu_insn* curr_insn = &insn;
 			const spu_insn* next_insn = curr_insn + 1;
@@ -271,7 +271,7 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 
 				bb* first_block = next_insn->parent;
 
-				const spu_insn* jumptbl_begin = next_insn;
+//				const spu_insn* jumptbl_begin = next_insn;
 				const spu_insn* jumptbl_end = next_insn;
 
 				while (jumptbl_end->op == spu_op::M_STOP 
@@ -333,9 +333,9 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 
 	for ( auto entry_vaddr : brsl_targets )
 	{
-		auto insn_index = (entry_vaddr - insninfo[0].vaddr) / 4;
+		auto insn_index = (entry_vaddr - ilist[0].vaddr) / 4;
 
-		auto insn = &insninfo[insn_index];
+		auto insn = &ilist[insn_index];
 
 		// by definition, the destination of a brsl call will be the first
 		// insn of a basic block

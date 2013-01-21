@@ -30,25 +30,38 @@ inline uint32_t addr( int64_t val )
 	return 0x3FFFF & (uint32_t)(uint64_t)val;
 }
 
-static bool initDone = false;
-
-void InitLTBL()
+void print_vaddr( ostringstream& oss, const spu_insn* insn )
 {
-
+	oss << setw(8) << hex << insn->vaddr << ":\t";
 }
 
-string spu_disassemble( const spu_insn* insn )
+void print_raw_bytes( ostringstream& oss, const spu_insn* insn )
 {
-	ostringstream oss;
-
-	oss << setw(8) << hex << insn->vaddr << ":\t";
-
 	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[3]) << " ";
 	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[2]) << " ";
 	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[1]) << " ";
 	oss << setw(2) << setfill('0') << hex << (int)(((uint8_t*)&insn->raw)[0]) << " ";
+}
 
+void print_mnemonic( ostringstream& oss, const spu_insn* insn )
+{
 	oss << spu_decode_op_mnemonic(insn->raw) << "\t";
+}
+
+string spu_disassemble( const spu_insn* insn )
+{
+	/* 
+	 * Output format:
+	 * <vaddr>: 01 23 45 67	<op_name> arg1, arg2, ...
+	 */
+
+	ostringstream oss;
+
+	print_vaddr(oss, insn);
+
+	print_raw_bytes(oss, insn);
+
+	print_mnemonic(oss, insn);	
 
 	switch ( spu_decode_op_type(insn->raw) )
 	{
@@ -181,17 +194,24 @@ string spu_disassemble( const spu_insn* insn )
 		}
 	case SPU_OP_TYPE_RI16:
 		{
-			/*if ( insn->op == spu_op::M_LQA 
-			|| insn->op == spu_op::M_LQR 
-			|| insn->op == spu_op::M_STQA 
-			|| insn->op == spu_op::M_STQR )
+			if ( insn->op == spu_op::M_LQA 
+				|| insn->op == spu_op::M_STQA )
 			{
-			oss << " $" << reg2str(insn->comps.RT)
-			<< ", " << dec << insn->comps.IMM;
-			if (insn->comps.IMM) 
-			oss << "\t#" << hex << (uint32_t)insn->comps.IMM;
-			break;
-			}*/
+				oss << " $" << reg2str(insn->comps.RT)
+					<< ", " << dec << insn->comps.IMM * 4;
+				if (insn->comps.IMM) 
+					oss << "\t#" << hex << addr(insn->comps.IMM * 4);
+				break;
+			}
+			else if ( insn->op == spu_op::M_LQR
+				|| insn->op == spu_op::M_STQR )
+			{
+				oss << " $" << reg2str(insn->comps.RT)
+					<< ", " << dec << insn->vaddr + insn->comps.IMM * 4;
+				if (insn->comps.IMM) 
+					oss << "\t#" << hex << addr(insn->vaddr + insn->comps.IMM * 4);
+				break;
+			}
 
 			if ( insn->op == spu_op::M_BR )
 			{
