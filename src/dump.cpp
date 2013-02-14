@@ -1,9 +1,58 @@
 
+namespace std { 
+	template<class T> class allocator;
+	template<class T> struct char_traits;
+	template<class T, class A = allocator<T>> class vector;
+	template<class C, class CT, class A> class basic_string;
+	typedef basic_string<char, char_traits<char>,  allocator<char>> string;
+}
 
 #include <Windows.h>
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <sstream>
+#include <algorithm>
+
+using namespace std;
+
+struct Ticker
+{
+	std::vector<uint64_t> ticks_;
+	uint64_t freq_;
+	uint64_t t0_;
+
+	Ticker() 
+		: freq_(0),
+		t0_(0)
+	{
+		ticks_.reserve(32);
+		QueryPerformanceFrequency((LARGE_INTEGER*)&freq_);
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
+	}
+
+	void Tick()
+	{
+		uint64_t t1 = 0;
+		QueryPerformanceCounter((LARGE_INTEGER*)&t1);
+		ticks_.push_back(t1 - t0_);
+		t0_ = t1;
+	}
+
+	void Reset()
+	{
+		ticks_.clear();
+		QueryPerformanceCounter((LARGE_INTEGER*)&t0_);
+	}
+
+	string Stats()
+	{
+		std::ostringstream oss;
+		std::for_each( ticks_.cbegin(), ticks_.cend(), [&oss](uint64_t t){ oss << t << ", "; });
+		return oss.str();
+	}
+};
+
 
 struct Streamer
 {

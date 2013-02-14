@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <intrin.h>
-//#include <vector>
 
 #define _BF_FIELD(bits, field1) uint##bits##_t field1;
 
@@ -100,42 +99,6 @@ static_assert(sizeof(SPU_INSTRUCTION) == 4, "");
 #define MFC_Size 0x13
 #define MFC_TagID 0x14*/
 
-
-
-
-//struct SPU_t
-//{
-//	SPU_t();
-//	~SPU_t();
-//	
-//	GPR_t* GPR;
-//	uint8_t* LocalStorage;
-//
-//	uint32_t IP;
-//
-//	// User
-//
-//	struct
-//	{
-//		uint32_t Run : 2;
-//		uint32_t Reserved_0_29 : 30;
-//	} SPU_RunCntl;
-//
-//	uint32_t SPU_Status;
-//
-//	struct
-//	{
-//		uint32_t InterruptEnable : 1;
-//		uint32_t Reserved_30 : 1;
-//		uint32_t LocalStorageAddress : 30;
-//	} SPU_NPC;
-//
-//
-//	// Privileged
-//	uint64_t SPU_PrivCntl;
-//	static const uint64_t SPU_LSLR = 0x000000000003ffff;
-//};
-
 //#define GPR_PREF_SLOT 3
 //
 //#define SPU_GPR_MASK 	0x000000000000007F
@@ -145,15 +108,10 @@ static_assert(sizeof(SPU_INSTRUCTION) == 4, "");
 //#define SPU_I18_MASK 	0x000000000003ffff
 
 
-__inline int64_t SignExtend( int64_t t, size_t Bits )
+inline int64_t SignExtend( int64_t t, size_t Bits )
 {
 	const size_t Offset = 8 * sizeof( int64_t ) - Bits;
 	return (t << Offset) >> Offset;
 }
-
-//uint32_t spu_assemble_one_text( SPU_t* targetSPU, const char* instr );
-//void spu_parse_file( SPU_t* targetSPU, const char* path );
-//void spu_extecute_single( SPU_t* SPU, uint32_t i );
-//void spu_execute( SPU_t* SPU );
 
 #endif

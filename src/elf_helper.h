@@ -228,36 +228,4 @@ private:
 	}
 };
 
-typedef std::vector<std::pair<size_t, size_t>> spu_img_regions_t;
-
-
-
-namespace elf
-{
-	using namespace std;
-
-	vector<size_t> EnumEmbeddedSPUOffsets( const vector<uint8_t>& Data );
-
-	void HeadersToSystemEndian( void* ELF );
-
-	size_t EntryPointIndex( const void* ELF );
-
-	size_t Entry( const void* ELF );
-
-	size_t VirtualBaseAddr( const void* ELF );
-
-	
-
-	//vector<uint32_t> PPUExecutables( void* ELF );
-
-	namespace spu
-	{
-		spu_img_regions_t ReadLoadRegions( const void* ELF  );
-
-		vector<uint32_t> LoadExecutable( const void* ELF );
-
-		void LoadImage( uint8_t* LS, const void* ELF );
-	}
-}
-
 #endif __ELF_HELPER_H__

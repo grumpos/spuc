@@ -156,7 +156,7 @@ struct jump_table
 	std::set<const spu_insn*> jump_targets;
 };
 
-std::vector<jump_table> enum_jump_tables(const std::vector<spu_insn>& ilist);
+std::vector<jump_table> enum_jump_tables(std::vector<spu_insn>& ilist);
 
 /* 
  * An SPU VM
@@ -166,11 +166,12 @@ typedef __m128 spu_gpr;
 
 struct spu_vm
 {
+	spu_gpr GPR[129]; // 128 regs + 1 for invalid reg index
 	spu_insn* next;
 	spu_insn* LR;
-	uint8_t* LS;
-	spu_gpr GPR[129];
+	uint8_t* LS;	
 	uint32_t vbase;
 };
+
 
 #endif

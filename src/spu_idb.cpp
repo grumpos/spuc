@@ -5,6 +5,11 @@
 #include "spu_idb.h"
 #include "spu_emu.h"
 
+
+
+static const size_t LSLR = 0x3ffff;
+static const size_t LSLR_INSN = LSLR >> 2;
+
 using namespace std;
 
 static vector<SPU_OP_TYPE>		db_op_type( SPU_MAX_INSTRUCTION_COUNT, SPU_OP_TYPE(-1) );
@@ -280,7 +285,7 @@ spu_insn* vaddr2insn( uint32_t vaddr, vector<spu_insn>& insns )
 	return &insns[offset];
 }
 
-vector<jump_table> enum_jump_tables(const vector<spu_insn>& ilist)
+std::vector<jump_table> enum_jump_tables( std::vector<spu_insn>& ilist )
 {
 	vector<jump_table> tables;
 
@@ -289,41 +294,41 @@ vector<jump_table> enum_jump_tables(const vector<spu_insn>& ilist)
 	// each stop is an IP
 	// the highest IP must belong to the bi's function
 	// thus bbs starting with thost IPs can't be terminators except the last one
-	set<bb*> cond_blocks;
+	
+	//set<bb*> cond_blocks;
 
-	auto to_insn = [&ilist](size_t vaddr) -> const spu_insn*
+	auto vaddr_of_code = [=](const spu_insn* insn)
 	{
-		const size_t offset = (vaddr - ilist[0].vaddr) / 4;
-		return &ilist[offset];
+		return insn->raw >= ilist.front().vaddr
+			&& insn->raw <= ilist.back().vaddr;
 	};
 
+	auto is_jump_vaddr = [&](const spu_insn* insn)
+	{
+		return insn->op == spu_op::M_STOP
+			&& vaddr_of_code(insn);
+	};
+
+	// TODO: use heuristics table to find all bi's fast
 	for (auto& insn : ilist)
 	{
 		const spu_insn* curr_insn = &insn;
 		const spu_insn* next_insn = curr_insn + 1;
 
-
-
 		if (curr_insn->op == spu_op::M_BI
-			&& next_insn->op == spu_op::M_STOP 
-			&& next_insn->raw >= 0x12c00)
+			&& is_jump_vaddr(next_insn))
 		{
-			// curr_insn == bi, the jump
-			// next_insn == first jump address
+			// curr_insn: bi, the jump
+			// next_insn: first jump address
 			jump_table new_table;
-			new_table.jump = curr_insn;
+			new_table.jump = curr_insn;			
 
-//			bb* first_block = next_insn->parent;
-
-//			const spu_insn* jumptbl_begin = next_insn;
-			const spu_insn* jumptbl_end = next_insn;
-
-			while (jumptbl_end->op == spu_op::M_STOP 
-				&& jumptbl_end->raw >= 0x12c00)
+			for (const spu_insn* jumptarget_iter = next_insn; 
+				is_jump_vaddr(jumptarget_iter);
+				++jumptarget_iter)
 			{
-				new_table.jump_targets.insert(to_insn(jumptbl_end->raw));
-				cond_blocks.insert(to_insn(jumptbl_end->raw)->parent);
-				++jumptbl_end;
+				new_table.jump_targets.insert(to_insn(ilist, jumptarget_iter->raw));
+//				cond_blocks.insert(to_insn(ilist, jumptbl_end->raw)->parent);
 			}
 
 			tables.push_back(new_table);
@@ -382,14 +387,13 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 	}
 
 	// entry is a leader 
-	// FIXME: hardcoded for now
 	bb_leads.push_back( &ilist[0] );
 
 	// gather branch targets
 	auto append_targets = [&](spu_op type) { 
 		for (auto insn : opdistrib[type])
 		{
-			auto to_vaddr = 0x3ffff & (insn->vaddr + insn->comps.IMM * 4);
+			auto to_vaddr = LSLR & (insn->vaddr + insn->comps.IMM * 4);
 			bb_leads.push_back(to_insn(ilist, to_vaddr));
 		}
 		//transform( opdistrib[type].cbegin(), opdistrib[type].cend(), 
@@ -430,24 +434,21 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 
 
 
-static const size_t LSLR = 0x3ffff;
-static const size_t LSLR_INSN = LSLR >> 2;
-
-
-
 set<size_t> spu_get_brsl_targets(
 	map<spu_op, vector<spu_insn*>>& histogram,
 	const vector<spu_insn>&,
 	size_t entry_vaddr )
 {
+	auto& brsl_insns = histogram[spu_op::M_BRSL];
 	set<size_t> vaddr_list;
 
 	vaddr_list.insert( entry_vaddr );
 
-	for ( auto insn : histogram[spu_op::M_BRSL] )
+	for ( auto insn : brsl_insns )
 	{
-		auto to_vaddr = (insn->vaddr + insn->comps.IMM * 4) & LSLR;
-		vaddr_list.insert( to_vaddr );
+		const auto voff = insn->comps.IMM * 4;
+		const auto vto = (insn->vaddr + voff) & LSLR;
+		vaddr_list.insert( vto );
 	}
 
 	return vaddr_list;

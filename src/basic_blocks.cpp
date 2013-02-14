@@ -12,7 +12,6 @@
 #include "elf_helper.h"
 #include "spu_pseudo.h"
 
-#include "basic_blocks.h"
 
 namespace spu
 {

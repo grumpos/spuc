@@ -7,8 +7,6 @@
 #include "spu_idb.h"
 #include "fn.h"
 
-
-
 enum class bbtype : uint8_t
 {
 	code = 0,
@@ -81,7 +79,7 @@ std::vector<fn> bb_genfn(std::vector<bb>& blocks,
 
 inline size_t bb_insn_count(const bb* block)
 {
-	return block->iend - block->ibegin;
+	return static_cast<size_t>(block->iend - block->ibegin);
 }
 
 #endif

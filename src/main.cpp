@@ -10,10 +10,10 @@
 #include <cassert>
 #include <memory>
 #include <iomanip>
+#include "spu_emu.h"
 #include "spu_idb.h"
 #include "elf.h"
 #include "elf_helper.h"
-#include "basic_blocks.h"
 #include "src_file.h"
 #include "basicblock.h"
 #include "fn.h"
@@ -28,7 +28,7 @@ set<T> operator-(const set<T>& lhs, const set<T>& rhs)
 	set<T> result;
 	set_difference(lhs.begin(), lhs.end(),
 		rhs.begin(), rhs.end(), inserter(result, result.end()));
-	return result;
+	return result; 
 }
 
 struct cfgnode
@@ -37,7 +37,7 @@ struct cfgnode
 		: block(nullptr) 
 	{}
 
-	vector<cfgnode*> pred;	
+	vector<cfgnode*> pred;	 
 	vector<cfgnode*> succ;
 	bb* block;
 };
@@ -91,13 +91,6 @@ struct cfgnode
 
 //vector<uint8_t> LoadFileBin( string path );
 
-struct fn_sym
-{
-	string name;
-};
-
-
-
 struct spu_image_info
 {
 	uint32_t txt_off;
@@ -108,49 +101,88 @@ struct spu_image_info
 
 const string OSFolder = "F:\\Downloads\\fail0verflow_ps3tools_win32_\\355\\update_files\\CORE_OS_PACKAGE\\";
 
-vector<uint8_t> LoadBinFile( string path )
+vector<uint8_t> ReadFileBin( string path )
 {
 	ifstream iff( path.c_str(), ios::in | ios::binary | ios::ate );
 	const size_t filesize = iff.tellg();
 	vector<uint8_t> FileData(filesize);
 	iff.seekg(0);
-	iff.read( (char*)FileData.data(), filesize );
+	iff.read( reinterpret_cast<char*>(FileData.data()), filesize );
 	return FileData;
 }
 
-//class SPUImage
-//{
-//public:
-//	vector<uint32_t> SPUTextSection;
-//	vector<uint8_t> SPUDataSection;
-//	vector<uint8_t> SPULSImage;
-//
-//public:
-//	SPUImage(vector<uint8_t>&& SPUBinary)
-//		: SPULSImage(SPUBinary)
-//	{
-//		 ReverseLSQWords();
-//	}
-//private:
-//	void ReverseLSQWords()
-//	{
-//		uint64_t* LSDataBegin = (uint64_t*)SPULSImage.data();
-//		uint64_t* LSDataEnd = (uint64_t*)SPULSImage.data();
-//
-//		while (LSDataBegin != LSDataEnd)
-//		{
-//			const uint64_t Temp = _byteswap_uint64(*LSDataBegin);
-//			*LSDataBegin = _byteswap_uint64(*++LSDataBegin);
-//			*LSDataBegin++ = Temp;
-//		}
-//	}
-//};
+void DumpDisassembly( const vector<fn>& functions );
+
+class SPUImage
+{
+public:
+	vector<uint32_t> SPUTextSection;
+	vector<uint8_t> SPUDataSection;
+	vector<uint8_t> SPULSImage;
+
+public:
+	SPUImage(vector<uint8_t>&& SPUBinary)
+		: SPULSImage(SPUBinary)
+	{
+		ReverseLSQWords();
+	}
+private:
+	void ReverseLSQWords()
+	{
+		const size_t DwordCount	= SPULSImage.size() / sizeof(uint64_t);
+		uint64_t* LSDataBegin	= reinterpret_cast<uint64_t*>(SPULSImage.data());
+		uint64_t* LSDataEnd		= reinterpret_cast<uint64_t*>(SPULSImage.data()) + DwordCount;
+
+		while (LSDataBegin != LSDataEnd)
+		{
+			LSDataBegin[0] = _byteswap_uint64(LSDataBegin[0]);
+			LSDataBegin[1] = _byteswap_uint64(LSDataBegin[1]);
+			swap(LSDataBegin[0], LSDataBegin[1]);
+			LSDataBegin += 2;
+		}
+	}
+};
+
+struct SPUDecoder
+{
+	typedef spu_insn InsnType;
+
+	vector<InsnType> Decode(vector<uint32_t>& IList, size_t VBase);
+};
+
+template<class InsnType, class BinaryDecoder>
+class ModuleEnv
+{
+public:
+
+};
+
+// A 128 bit byteswap for LE systems
+void PreprocessLS( vector<uint8_t>& SPULSImage )
+{
+	const size_t DwordCount	= SPULSImage.size() / sizeof(uint64_t);
+	uint64_t* LSDataBegin	= reinterpret_cast<uint64_t*>(SPULSImage.data());
+	uint64_t* LSDataEnd		= reinterpret_cast<uint64_t*>(SPULSImage.data()) + DwordCount;
+
+	while (LSDataBegin != LSDataEnd)
+	{
+		LSDataBegin[0] = _byteswap_uint64(LSDataBegin[0]);
+		LSDataBegin[1] = _byteswap_uint64(LSDataBegin[1]);
+		swap(LSDataBegin[0], LSDataBegin[1]);
+		LSDataBegin += 2;
+	}
+}
 
 
 int main( int /*argc*/, char** /*argv*/ )
 {
 	//auto internalELF = elf::EnumEmbeddedSPUOffsets(ELFFile);
-	
+
+	//void symbol_test();
+	//symbol_test();
+
+	//return 0;
+	//
 	vector<uint32_t> SPUTextSection;
 	vector<uint8_t> SPUDataSection;
 	vector<uint8_t> SPULSImage;
@@ -159,7 +191,7 @@ int main( int /*argc*/, char** /*argv*/ )
 #if 1
 	{
 		// bootldr.elf
-		SPULSImage = LoadBinFile(OSFolder + "bootldr.elf");
+		SPULSImage = ReadFileBin(OSFolder + "bootldr.elf");
 
 		const spu_image_info BoorldrDesc =
 		{
@@ -219,16 +251,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	}
 #endif
 
-	uint64_t* LSDataBegin = (uint64_t*)SPULSImage.data();
-	uint64_t* LSDataEnd = (uint64_t*)SPULSImage.data() + SPULSImage.size() / sizeof(uint64_t);
-
-	while (LSDataBegin != LSDataEnd)
-	{
-		const uint64_t Temp = _byteswap_uint64(LSDataBegin[0]);
-		LSDataBegin[0] = _byteswap_uint64(LSDataBegin[1]);
-		LSDataBegin[1] = Temp;
-		LSDataBegin += 2;
-	}
+	PreprocessLS(SPULSImage);
 
 	for (auto& op : SPUTextSection)
 	{
@@ -244,20 +267,33 @@ int main( int /*argc*/, char** /*argv*/ )
 		spu_insn_process_bin( SPUTextSection, ilist, VirtualBase );
 	}
 
-	
-	
+	//
+	//
 
-	spu_vm spuVM;
-	spuVM.next = &ilist[0];
-	spuVM.LS = SPULSImage.data();
-	spuVM.vbase = VirtualBase;
-	memset(spuVM.GPR, 0, 128 * 16);
+	//spu_vm spuVM;
+	//spuVM.next = &ilist[0];
+	//spuVM.LS = SPULSImage.data();
+	//spuVM.vbase = VirtualBase;
+	//memset(spuVM.GPR, 0, 128 * 16);
 
-	while (spuVM.next)
-	{
-		void spu_vm_dostep(spu_vm* vm);
-		spu_vm_dostep(&spuVM);
-	}
+	//while (spuVM.next)
+	//{
+	//	void spu_vm_dostep(spu_vm* vm);
+	//	spu_vm_dostep(&spuVM);
+	//}
+
+	//string spu_make_pseudo( const spu_insn* insn );
+	//ostringstream oss;
+
+
+	//for (auto insn : ilist)
+	//{
+	//	oss << spu_make_pseudo( &insn ) << endl;
+	//}
+
+	//ofstream off("F:\\boot_src.cpp");
+	//off << oss.str();
+	//off.close();
 
 
 	map<spu_op, vector<spu_insn*>> Distrib_new;
@@ -305,33 +341,8 @@ int main( int /*argc*/, char** /*argv*/ )
 		return insn + insn->comps.IMM;
 	};
 
-	ostringstream oss;
+	//DumpDisassembly(functions);
 
-	
-
-	for (auto& fun : functions)
-	{
-		oss << "function " << "sub" 
-			<< setw(8) << setfill('0') << hex << fun.entry->ibegin->vaddr 
-			<< endl;
-
-		for (auto block = fun.entry; block <= fun.exit; ++block)
-		{
-			oss << "\t" << "loc" 
-				<< setw(8) << setfill('0') << hex << block->ibegin->vaddr 
-				<< ":" << endl;
-			for (auto insn = block->ibegin; insn != block->iend; ++insn)
-			{
-				oss << "\t" 
-					<< spu_disassemble(insn)
-					<< endl;
-			}
-		}
-	}
-
-	ofstream off("F:\\bootldr.dis");
-	off << oss.str();
-	off.close();
 
 	for (auto& fun : functions)
 	{
@@ -493,4 +504,33 @@ int main( int /*argc*/, char** /*argv*/ )
 		elf::VirtualBaseAddr(SPU0), elf::EntryPointIndex(SPU0)*4 );
 	*/
 	return 0;
+}
+
+void DumpDisassembly( const vector<fn>& functions )
+{
+	ostringstream oss;	
+
+	for (auto& fun : functions)
+	{
+		oss << "function " << "sub" 
+			<< setw(8) << setfill('0') << hex << fun.entry->ibegin->vaddr 
+			<< endl;
+
+		for (auto block = fun.entry; block <= fun.exit; ++block)
+		{
+			oss << "\t" << "loc" 
+				<< setw(8) << setfill('0') << hex << block->ibegin->vaddr 
+				<< ":" << endl;
+			for (auto insn = block->ibegin; insn != block->iend; ++insn)
+			{
+				oss << "\t" 
+					<< spu_disassemble(insn)
+					<< endl;
+			}
+		}
+	}
+
+	ofstream off("F:\\bootldr.dis");
+	off << oss.str();
+	off.close();
 }
