@@ -42,6 +42,65 @@ struct cfgnode
 	bb* block;
 };
 
+struct uint18_t
+{
+	uint18_t() : data(0) {}
+	uint18_t(uint32_t u) : data(u) { mask(); }
+
+	inline void mask() { data &= 0x3ffff; }
+
+	uint18_t& operator+=(const uint18_t& rhs)
+	{
+		data += rhs;
+		mask();
+		return *this;
+	}
+
+	uint18_t& operator-=(const uint18_t& rhs)
+	{
+		data -= rhs;
+		mask();
+		return *this;
+	}
+
+	operator uint32_t() const { return data; }
+
+	uint32_t data;
+};
+
+uint18_t operator+(const uint18_t& lhs, const uint18_t& rhs)
+{
+	uint18_t res(lhs);
+	res += rhs;
+	return res;
+}
+
+uint18_t operator-(const uint18_t& lhs, const uint18_t& rhs)
+{
+	uint18_t res(lhs);
+	res -= rhs;
+	return res;
+}
+
+template <class T>
+struct ptr_range
+{
+	ptr_range() : _begin(nullptr), _end(nullptr) {}
+	ptr_range(T* bb, T* ee) : _begin(bb), _end(ee) {}
+
+	T* begin() { return _begin; }
+	T* end() { return _end; }
+
+	T* const _begin;
+	T* const _end;
+};
+
+//template <class T> T*
+//begin<ptr_range>( const ptr_range& pr )
+//{
+//	return pr._begin;
+//}
+
 //void spuGatherLoads( const vector<uint32_t>& Binary, spu::op_distrib_t& OPDistrib,
 //					size_t VirtBase )
 //{	
@@ -91,6 +150,31 @@ struct cfgnode
 
 //vector<uint8_t> LoadFileBin( string path );
 
+struct loop_dowhile
+{
+	loop_dowhile( vector<spu_insn>& ilist, bb* brx_neg )
+		: head(nullptr),
+		cont(nullptr),
+		brk(brx_neg + 1)
+	{
+		uint32_t to_vaddr = brx_neg->branch->vaddr + brx_neg->branch->comps.IMM * 4;
+		to_vaddr &= 0x3ffff;
+		spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+		head = target->parent;
+	}
+
+	bb* head;
+	bb* cont;
+	bb* brk;
+};
+
+enum looptype 
+{
+	lt_dowhile,
+	lt_while,
+	lt_for
+};
+
 struct spu_image_info
 {
 	uint32_t txt_off;
@@ -111,7 +195,7 @@ vector<uint8_t> ReadFileBin( string path )
 	return FileData;
 }
 
-void DumpDisassembly( const vector<fn>& functions );
+void DumpDisassembly( const vector<fn>& functions, const string& path );
 
 class SPUImage
 {
@@ -315,14 +399,16 @@ int main( int /*argc*/, char** /*argv*/ )
 
 	set<size_t> brsl_targets = spu_get_brsl_targets(Distrib_new, ilist, VirtualBase);
 
-	vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
-		Distrib_new, ilist );
+	/*vector<size_t> bb_leads = spu_find_basicblock_leader_offsets(
+	Distrib_new, ilist );*/
 
-	vector<bb> blocks = bb_genblocks( bb_leads, ilist );
+	vector<bb> blocks = bb_genblocks( ilist, Distrib_new );
 
 	bb_calctypes( blocks );
 
-	vector<fn> functions = bb_genfn(blocks, ilist, brsl_targets);
+	vector<fn> functions = bb_genfn(blocks, ilist, brsl_targets, VirtualBase);
+
+//	assert( functions.size() == 0x1d6);
 
 	// try a validation pass maybe?
 	// branches should jump inside the function only. except the TCO exits jumps
@@ -341,53 +427,155 @@ int main( int /*argc*/, char** /*argv*/ )
 		return insn + insn->comps.IMM;
 	};
 
-	//DumpDisassembly(functions);
+	//DumpDisassembly(functions, "F:\\bootldr.dis");
 
 
-	for (auto& fun : functions)
-	{
-		auto fn_begin = fun.entry->ibegin;
-		auto fn_end = fun.exit->iend;
+	// look for blocks that jump out of functions and are not exits
+	//for (auto& fun : functions)
+	//{
+	//	auto fn_begin = fun.entry->ibegin;
+	//	auto fn_end = fun.exit->iend;
 
-		for (auto block = fun.entry; block != fun.exit; ++block)
-		{
-			for (auto insn = block->ibegin; insn != block->iend; ++insn)
-			{
-				if (is_jump(insn))
-				{
-					auto to = jump_target(insn);
+	//	for (auto block = fun.entry; block != fun.exit; ++block)
+	//	{
+	//		for (auto insn = block->ibegin; insn != block->iend; ++insn)
+	//		{
+	//			if (is_jump(insn))
+	//			{
+	//				auto to = jump_target(insn);
 
-					if (to < fn_begin 
-						|| to >= fn_end)
-						cout << hex << insn->vaddr << "->" << hex << to->vaddr << endl;
-				}
-			}
-		}
-	}
+	//				if (to < fn_begin 
+	//					|| to >= fn_end)
+	//					cout << hex << insn->vaddr << "->" << hex << to->vaddr << endl;
+	//			}
+	//		}
+	//	}
+	//}
 	
 	
 	
 	fn_calc_argcount(functions);
 		
-	set<const spu_insn*> unused_insn;
-	set<bool> dumper;
+	//set<const spu_insn*> unused_insn;
+	//set<bool> dumper;
 
-	transform(functions.begin(), functions.end()-1,
-		functions.begin()+1,
-		inserter(dumper, dumper.end()),
-		[&](const fn& a, const fn& b)
+	//transform(functions.begin(), functions.end()-1,
+	//	functions.begin()+1,
+	//	inserter(dumper, dumper.end()),
+	//	[&](const fn& a, const fn& b)
+	//{
+	//	auto en = a.exit->iend;
+	//	auto ex = b.entry->ibegin;
+	//	while (en != ex)
+	//		unused_insn.insert(en++);
+
+	//	return false;
+	//});
+
+	
+	// static jumps at function exits are TCOs
+	for ( auto& fun : functions )
 	{
-		auto en = a.exit->iend;
-		auto ex = b.entry->ibegin;
-		while (en != ex)
-			unused_insn.insert(en++);
+		if ( fun.exit->branch->op == spu_op::M_BR )
+		{
+			fun.exit->type = bbtype::ret_tco;
+		}
+	}
 
-		return false;
-	});
-		
+	// mid-function static jumps to known function entries are TCOs
+	for ( auto* insn : Distrib_new[spu_op::M_BR] )
+	{
+		const size_t to_vaddr = (insn->vaddr + insn->comps.IMM * 4) & 0x3ffff;
+		spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+		for ( auto& fun : functions )
+		{
+			if ( target == fun.entry->ibegin)
+			{
+				insn->parent->type = bbtype::ret_tco;
+				break;
+			}
+		}
+	}
 
 
+	
+	ostringstream oss;
+	for ( auto& fun : functions )
+	{
+		oss << "function " << fun.entry->ibegin->vaddr << endl;
 
+		vector<loop_dowhile> loops;
+
+		for ( auto& block : ptr_range<bb>(fun.entry, fun.exit + 1) )
+		{
+			if ( bbtype::cjumpb == block.type
+				|| bbtype::sjumpb == block.type)
+			{
+				loops.push_back(loop_dowhile(ilist, &block));
+			}
+		}
+
+		for ( auto& block : ptr_range<bb>(fun.entry, fun.exit + 1) )
+		{
+			oss << "\t";
+
+			switch (block.type)
+			{
+			case bbtype::cjumpf:
+				{
+					const size_t to_vaddr = (block.branch->vaddr + block.branch->comps.IMM * 4) & 0x3ffff;
+					spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+					oss << "IF\t\t" << hex << block.branch->vaddr << " - " << hex << target->vaddr;
+					break;
+				}
+			case bbtype::cjumpb:
+				{
+					const size_t to_vaddr = (block.branch->vaddr + block.branch->comps.IMM * 4) & 0x3ffff;
+					spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+					oss << "DO-WHILE\t";
+					oss << "head: " << hex << target->vaddr;
+					oss << " step: " << hex << (&block - 1)->ibegin->vaddr;
+					oss << " continue: " << hex << block.ibegin->vaddr;
+					oss << " break: " << hex << (block.branch + 1)->vaddr;
+					break;
+				}
+			case bbtype::sjumpf:
+				{
+					const size_t to_vaddr = (block.branch->vaddr + block.branch->comps.IMM * 4) & 0x3ffff;
+					spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+
+					loop_dowhile dw(ilist, &block);
+					oss << "GOTO\t\t";
+					oss << hex << target->vaddr;
+					break;
+				}
+			case bbtype::sjumpb:
+				{
+					const size_t to_vaddr = (block.branch->vaddr + block.branch->comps.IMM * 4) & 0x3ffff;
+					spu_insn* target = &ilist[(to_vaddr - ilist[0].vaddr) / 4];
+					oss << "FOREVER\t\t";
+					oss << "head: " << hex << target->vaddr;
+					oss << " step: " << hex << (&block - 1)->ibegin->vaddr;
+					oss << " continue: " << hex << block.ibegin->vaddr;
+					oss << " break: " << hex << (block.branch + 1)->vaddr;
+					break;
+				}
+			case bbtype::scall:
+				{
+					oss << "CALL";
+					break;
+				}
+			default:
+				{
+					oss << "CODE";
+					break;
+				}
+			}
+			oss << endl;
+		}
+	}
+
+	ofstream("F:\\bootldr_branches.txt") << oss.str();
 
 
 	/*auto cfg_connect = [](cfgnode& a, cfgnode& b)
@@ -506,7 +694,7 @@ int main( int /*argc*/, char** /*argv*/ )
 	return 0;
 }
 
-void DumpDisassembly( const vector<fn>& functions )
+void DumpDisassembly( const vector<fn>& functions, const string& path )
 {
 	ostringstream oss;	
 
@@ -530,7 +718,7 @@ void DumpDisassembly( const vector<fn>& functions )
 		}
 	}
 
-	ofstream off("F:\\bootldr.dis");
+	ofstream off(path.c_str());
 	off << oss.str();
 	off.close();
 }

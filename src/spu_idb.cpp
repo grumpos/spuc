@@ -352,7 +352,7 @@ vector<size_t> spu_find_basicblock_leader_offsets(
 		}
 	};
 	append( spu_op::M_BR );
-	append( spu_op::M_BRSL );
+	//append( spu_op::M_BRSL );
 	append( spu_op::M_BRZ );
 	append( spu_op::M_BRNZ );
 	append( spu_op::M_BRHZ );

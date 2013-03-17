@@ -56,9 +56,9 @@ struct bb
 };
 
 
-std::vector<bb> bb_genblocks( 
-	const std::vector<size_t>& block_leads,
-	std::vector<spu_insn>& ilist );
+std::vector<bb> bb_genblocks(
+	std::vector<spu_insn>& ilist,
+	std::map<spu_op, std::vector<spu_insn*>>& opdistrib );
 
 void bb_calctypes(
 	std::vector<bb>& blocks );
@@ -73,7 +73,8 @@ void bb_find_unconditional_blocks(
 
 std::vector<fn> bb_genfn(std::vector<bb>& blocks,
 					const std::vector<spu_insn>& ilist,
-					const std::set<size_t>& brsl_targets);
+					const std::set<size_t>& brsl_targets,
+					size_t vbase);
 
 // helpers
 

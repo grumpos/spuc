@@ -6,11 +6,13 @@
 using namespace std;
 
 vector<bb> bb_genblocks( 
-	const vector<size_t>& block_leads,
-	vector<spu_insn>& ilist )
+	vector<spu_insn>& ilist,
+	map<spu_op, vector<spu_insn*>>& opdistrib )
 {
 	vector<bb> blocks;
 	vector<spu_insn*> bb_lead_insn;
+	vector<size_t> block_leads = spu_find_basicblock_leader_offsets(
+		opdistrib, ilist );
 
 	bb_lead_insn.reserve(block_leads.size());
 
@@ -180,7 +182,8 @@ void bb_find_unconditional_blocks(
 
 vector<fn> bb_genfn(vector<bb>& blocks,
 					const vector<spu_insn>& ilist,
-					const set<size_t>& brsl_targets)
+					const set<size_t>& brsl_targets,
+					size_t vbase)
 {
 	/*** Finding function boundaries using basic blocks
 
@@ -241,62 +244,62 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 
 	bb_find_unconditional_blocks( blocks, blocks_uncond );
 
-	{
-		// find jump tables embedded in the text section
-		// bi, followed by nonzero stops
-		// each stop is an IP
-		// the highest IP must belong to the bi's function
-		// thus bbs starting with thost IPs can't be terminators except the last one
-		set<bb*> cond_blocks;
-
-		auto to_insn = [&ilist](size_t vaddr) -> const spu_insn*
-		{
-			const size_t offset = (vaddr - ilist[0].vaddr) / 4;
-			return &ilist[offset];
-		};
-
-		for (auto& insn : ilist)
-		{
-			const spu_insn* curr_insn = &insn;
-			const spu_insn* next_insn = curr_insn + 1;
-
-			
-
-			if (curr_insn->op == spu_op::M_BI
-				&& next_insn->op == spu_op::M_STOP 
-				&& next_insn->raw >= 0x12c00)
-			{
-				// curr_insn == bi, the jump
-				// next_insn == first jump address
-
-				bb* first_block = next_insn->parent;
-
-//				const spu_insn* jumptbl_begin = next_insn;
-				const spu_insn* jumptbl_end = next_insn;
-
-				while (jumptbl_end->op == spu_op::M_STOP 
-					&& jumptbl_end->raw >= 0x12c00)
-				{
-					cond_blocks.insert(to_insn(jumptbl_end->raw)->parent);
-					++jumptbl_end;
-				}
-
-				bb* last_block = *--cond_blocks.end();
-
-				cond_blocks.erase(--cond_blocks.end());
-
-				while (first_block != last_block)
-				{
-					blocks_uncond.erase(first_block++);
-				}
-			}
-		}
-
-		for (auto block : cond_blocks)
-		{
-			blocks_uncond.erase(block);
-		}
-	}
+//	{
+//		// find jump tables embedded in the text section
+//		// bi, followed by nonzero stops
+//		// each stop is an IP
+//		// the highest IP must belong to the bi's function
+//		// thus bbs starting with thost IPs can't be terminators except the last one
+//		set<bb*> cond_blocks;
+//
+//		auto to_insn = [&ilist](size_t vaddr) -> const spu_insn*
+//		{
+//			const size_t offset = (vaddr - ilist[0].vaddr) / 4;
+//			return &ilist[offset];
+//		};
+//
+//		for (auto& insn : ilist)
+//		{
+//			const spu_insn* curr_insn = &insn;
+//			const spu_insn* next_insn = curr_insn + 1;
+//
+//			
+//
+//			if (curr_insn->op == spu_op::M_BI
+//				&& next_insn->op == spu_op::M_STOP 
+//				&& next_insn->raw >= vbase)
+//			{
+//				// curr_insn == bi, the jump
+//				// next_insn == first jump address
+//
+//				bb* first_block = next_insn->parent;
+//
+////				const spu_insn* jumptbl_begin = next_insn;
+//				const spu_insn* jumptbl_end = next_insn;
+//
+//				while (jumptbl_end->op == spu_op::M_STOP 
+//					&& jumptbl_end->raw >= vbase)
+//				{
+//					cond_blocks.insert(to_insn(jumptbl_end->raw)->parent);
+//					++jumptbl_end;
+//				}
+//
+//				bb* last_block = *--cond_blocks.end();
+//
+//				cond_blocks.erase(--cond_blocks.end());
+//
+//				while (first_block != last_block)
+//				{
+//					blocks_uncond.erase(first_block++);
+//				}
+//			}
+//		}
+//
+//		for (auto block : cond_blocks)
+//		{
+//			blocks_uncond.erase(block);
+//		}
+//	}
 
 	set<bb*> known_fn_entries;
 	set<bb*> known_fn_exits;
@@ -462,6 +465,45 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 
 		recalc_boundaries();*/
 
+		// loop until we have found all entry/exit points
+#if 0
+		for (;;)
+		{
+			const size_t entry_old_size = known_fn_entries.size();
+			const size_t exit_old_size = known_fn_exits.size();
+
+			// look for blocks that can be entry/exit points
+			for (auto block : sjumps)
+			{
+				bb* target_block = (block->branch + block->branch->comps.IMM)->parent;
+
+				if (is_fn_exit(block) 
+					|| is_fn_entry(next_not_lnop(block))
+					|| is_fn_entry(target_block) 
+					|| is_fn_exit(prev_not_lnop(target_block)))
+				{
+					known_fn_exits.insert(block);
+					if (can_be_fn_lead(target_block))
+					{
+						known_fn_entries.insert(target_block);
+					}
+				}
+			}
+
+			// new fn boundaries, pair up the entries/exits!
+			if (entry_old_size != known_fn_entries.size()
+				|| exit_old_size != known_fn_exits.size())
+			{
+				recalc_boundaries();
+			}
+			else
+			{
+				// done
+				break; 
+			}
+		}
+#else
+
 		for (auto block : sjumps)
 		{
 			bb* target_block = (block->branch + block->branch->comps.IMM)->parent;
@@ -500,6 +542,7 @@ vector<fn> bb_genfn(vector<bb>& blocks,
 			//	recalc_boundaries();
 			//}
 		}
+#endif
 	}
 
 	// drop false positives

@@ -12,6 +12,51 @@
 
 using namespace std;
 
+class RegAliasColl
+{
+public:
+	RegAliasColl() : RegAlias(128), NextTempID(0) {}
+
+	string GetAlias( size_t reg )
+	{
+		if ( reg < 128 )
+			return RegAlias[reg];
+		return "";
+	}
+
+	void AsFunctionArg( size_t reg )
+	{
+		if ( reg < 128 )
+		{
+			ostringstream oss;
+			oss << "arg" << Stringize(reg);
+			RegAlias[reg] = oss.str();
+		}
+	}
+
+	string GetTempFor( size_t reg )
+	{
+		if ( reg < 128 )
+		{
+			ostringstream oss;
+			oss << "temp" << Stringize(NextTempID);
+			RegAlias[reg] = oss.str();
+		}
+		++NextTempID;
+		return RegAlias[reg];
+	}
+private:
+	string Stringize( size_t reg )
+	{
+		ostringstream oss;
+		oss << setw(8) << setfill('0') << reg;
+		return oss.str();
+	}
+
+	vector<string> RegAlias;
+	size_t NextTempID;
+};
+
 void replace_all( string& where, const string& what, const string& with_what )
 {		
 	for ( size_t offset = where.find( what ); offset != string::npos; )
